@@ -1,0 +1,237 @@
+// Kaiseki Analytics - Prisma Schema
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== Auth Models =====
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  easyMode      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts       Account[]
+  sessions       AuthSession[]
+  projectMembers ProjectMember[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model AuthSession {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("auth_sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ===== Project Models =====
+
+model Project {
+  id             String   @id @default(cuid())
+  name           String
+  publicKey      String   @unique @default(cuid())
+  secretKey      String   @unique
+  allowedDomains String[] @default([])
+  excludedIps    String[] @default([])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  members       ProjectMember[]
+  sessions      Session[]
+  events        Event[]
+  conversions   Conversion[]
+  trackingRules TrackingRule[]
+  auditLogs     AuditLog[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  role      String   @default("viewer") // owner, admin, viewer
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+// ===== Analytics Models =====
+
+model Session {
+  id            String    @id @default(cuid())
+  projectId     String
+  visitorId     String
+  sessionId     String    @unique
+  startedAt     DateTime  @default(now())
+  endedAt       DateTime?
+  landingUrl    String?
+  landingPath   String?
+  referrer      String?
+  utmSource     String?
+  utmMedium     String?
+  utmCampaign   String?
+  utmContent    String?
+  utmTerm       String?
+  gclid         String?
+  fbclid        String?
+  channelGroup  String    @default("Direct")
+  country       String?
+  device        String?
+  browser       String?
+  os            String?
+  pageviewCount Int       @default(0)
+  engaged       Boolean   @default(false)
+  bounced       Boolean   @default(true)
+  duration      Int       @default(0) // seconds
+  maxScroll     Int       @default(0) // percent
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  pageviews PageView[]
+  events    Event[]
+
+  @@index([projectId, startedAt])
+  @@index([projectId, channelGroup])
+  @@index([visitorId])
+  @@map("sessions")
+}
+
+model PageView {
+  id        String   @id @default(cuid())
+  projectId String
+  sessionId String
+  visitorId String
+  path      String
+  title     String?
+  referrer  String?
+  timestamp DateTime @default(now())
+  duration  Int? // seconds on page
+
+  session Session @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
+
+  @@index([projectId, timestamp])
+  @@index([sessionId])
+  @@map("pageviews")
+}
+
+model Event {
+  id        String   @id @default(cuid())
+  projectId String
+  sessionId String
+  visitorId String
+  eventType String // page_view, cta_click, scroll_depth, engagement_ping, conversion, custom
+  eventName String?
+  path      String?
+  props     Json?
+  timestamp DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
+
+  @@index([projectId, timestamp])
+  @@index([projectId, eventType, timestamp])
+  @@index([sessionId])
+  @@map("events")
+}
+
+model Conversion {
+  id             String   @id @default(cuid())
+  projectId      String
+  sessionId      String
+  visitorId      String
+  trackingRuleId String?
+  conversionName String
+  path           String?
+  props          Json?
+  timestamp      DateTime @default(now())
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  trackingRule TrackingRule? @relation(fields: [trackingRuleId], references: [id])
+
+  @@index([projectId, timestamp])
+  @@index([sessionId])
+  @@map("conversions")
+}
+
+model TrackingRule {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  type      String // url_match, click, form_submit
+  config    Json // url pattern, selector, etc.
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  conversions Conversion[]
+  auditLogs   AuditLog[]
+
+  @@index([projectId])
+  @@map("tracking_rules")
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  projectId      String
+  trackingRuleId String?
+  action         String // created, updated, deleted
+  actorEmail     String?
+  details        Json?
+  timestamp      DateTime @default(now())
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  trackingRule TrackingRule? @relation(fields: [trackingRuleId], references: [id])
+
+  @@index([projectId, timestamp])
+  @@map("audit_logs")
+}

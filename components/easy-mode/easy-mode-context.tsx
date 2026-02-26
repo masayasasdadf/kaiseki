@@ -4,8 +4,8 @@ import React, {
   createContext,
   useContext,
   useState,
-  useTransition,
   useCallback,
+  useEffect,
 } from "react";
 
 interface EasyModeContextValue {
@@ -22,34 +22,26 @@ const EasyModeContext = createContext<EasyModeContextValue>({
 
 export function EasyModeProvider({
   children,
-  initialValue = false,
 }: {
   children: React.ReactNode;
-  initialValue?: boolean;
 }) {
-  const [easyMode, setEasyMode] = useState(initialValue);
-  const [isPending, startTransition] = useTransition();
+  const [easyMode, setEasyMode] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("easyMode");
+    if (stored === "true") setEasyMode(true);
+  }, []);
 
   const toggle = useCallback(() => {
-    const next = !easyMode;
-    setEasyMode(next);
-
-    // サーバーに保存（非同期、失敗しても UIは即時反映）
-    startTransition(async () => {
-      try {
-        await fetch("/api/user/easy-mode", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ easyMode: next }),
-        });
-      } catch {
-        // エラーは無視（ローカル状態を優先）
-      }
+    setEasyMode((prev) => {
+      const next = !prev;
+      localStorage.setItem("easyMode", String(next));
+      return next;
     });
-  }, [easyMode]);
+  }, []);
 
   return (
-    <EasyModeContext.Provider value={{ easyMode, toggle, isPending }}>
+    <EasyModeContext.Provider value={{ easyMode, toggle, isPending: false }}>
       {children}
     </EasyModeContext.Provider>
   );

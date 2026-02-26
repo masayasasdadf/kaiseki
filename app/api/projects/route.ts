@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { generateSecretKey } from "@/lib/utils";
 
@@ -9,44 +8,27 @@ const createProjectSchema = z.object({
 });
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const memberships = await db.projectMember.findMany({
-    where: { userId: session.user.id },
-    include: {
-      project: {
-        select: {
-          id: true,
-          name: true,
-          publicKey: true,
-          createdAt: true,
-          allowedDomains: true,
-          _count: {
-            select: { sessions: true },
-          },
-        },
-      },
+  const projects = await db.project.findMany({
+    select: {
+      id: true,
+      name: true,
+      publicKey: true,
+      createdAt: true,
+      allowedDomains: true,
+      _count: { select: { sessions: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
   return Response.json({
-    projects: memberships.map((m) => ({
-      ...m.project,
-      role: m.role,
+    projects: projects.map((p) => ({
+      ...p,
+      allowedDomains: JSON.parse(p.allowedDomains) as string[],
     })),
   });
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   let body: unknown;
   try {
     body = await req.json();
@@ -66,12 +48,6 @@ export async function POST(req: NextRequest) {
     data: {
       name: parsed.data.name,
       secretKey: generateSecretKey(),
-      members: {
-        create: {
-          userId: session.user.id,
-          role: "owner",
-        },
-      },
     },
     select: {
       id: true,

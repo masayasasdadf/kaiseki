@@ -1,73 +1,12 @@
 // Kaiseki Analytics - Prisma Schema
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-1.0.x"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
-}
-
-// ===== Auth Models =====
-
-model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  easyMode      Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  accounts       Account[]
-  sessions       AuthSession[]
-  projectMembers ProjectMember[]
-
-  @@map("users")
-}
-
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-  @@map("accounts")
-}
-
-model AuthSession {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("auth_sessions")
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-  @@map("verification_tokens")
 }
 
 // ===== Project Models =====
@@ -77,12 +16,11 @@ model Project {
   name           String
   publicKey      String   @unique @default(cuid())
   secretKey      String   @unique
-  allowedDomains String[] @default([])
-  excludedIps    String[] @default([])
+  allowedDomains String   @default("[]")
+  excludedIps    String   @default("[]")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  members       ProjectMember[]
   sessions      Session[]
   events        Event[]
   conversions   Conversion[]
@@ -90,20 +28,6 @@ model Project {
   auditLogs     AuditLog[]
 
   @@map("projects")
-}
-
-model ProjectMember {
-  id        String   @id @default(cuid())
-  projectId String
-  userId    String
-  role      String   @default("viewer") // owner, admin, viewer
-  createdAt DateTime @default(now())
-
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([projectId, userId])
-  @@map("project_members")
 }
 
 // ===== Analytics Models =====
@@ -133,8 +57,8 @@ model Session {
   pageviewCount Int       @default(0)
   engaged       Boolean   @default(false)
   bounced       Boolean   @default(true)
-  duration      Int       @default(0) // seconds
-  maxScroll     Int       @default(0) // percent
+  duration      Int       @default(0)
+  maxScroll     Int       @default(0)
 
   project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   pageviews PageView[]
@@ -155,7 +79,7 @@ model PageView {
   title     String?
   referrer  String?
   timestamp DateTime @default(now())
-  duration  Int? // seconds on page
+  duration  Int?
 
   session Session @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
 
@@ -169,10 +93,10 @@ model Event {
   projectId String
   sessionId String
   visitorId String
-  eventType String // page_view, cta_click, scroll_depth, engagement_ping, conversion, custom
+  eventType String
   eventName String?
   path      String?
-  props     Json?
+  props     String?
   timestamp DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -192,7 +116,7 @@ model Conversion {
   trackingRuleId String?
   conversionName String
   path           String?
-  props          Json?
+  props          String?
   timestamp      DateTime @default(now())
 
   project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -207,8 +131,8 @@ model TrackingRule {
   id        String   @id @default(cuid())
   projectId String
   name      String
-  type      String // url_match, click, form_submit
-  config    Json // url pattern, selector, etc.
+  type      String
+  config    String
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -225,9 +149,9 @@ model AuditLog {
   id             String   @id @default(cuid())
   projectId      String
   trackingRuleId String?
-  action         String // created, updated, deleted
+  action         String
   actorEmail     String?
-  details        Json?
+  details        String?
   timestamp      DateTime @default(now())
 
   project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)

@@ -1,18 +1,10 @@
 /**
  * Kaiseki Analytics - Ingest API
- *
  * POST /api/ingest
- *
- * セキュリティ:
- * - Rate limiting（IPベース、インメモリ）
- * - CORS（allowedDomains チェック）
- * - PII除外
- * - 入力バリデーション（Zod）
  */
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { classifyChannel } from "@/lib/attribution";
 import { sanitizePII, detectDevice, detectBrowser, detectOS } from "@/lib/utils";
@@ -25,25 +17,21 @@ interface RateLimitEntry {
 }
 
 const rateLimitStore = new Map<string, RateLimitEntry>();
-const RATE_LIMIT_MAX = 100; // リクエスト数
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1分
+const RATE_LIMIT_MAX = 100;
+const RATE_LIMIT_WINDOW = 60 * 1000;
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const entry = rateLimitStore.get(ip);
-
   if (!entry || now > entry.resetAt) {
     rateLimitStore.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
     return true;
   }
-
   if (entry.count >= RATE_LIMIT_MAX) return false;
-
   entry.count++;
   return true;
 }
 
-// メモリリーク防止のため定期的にクリーンアップ
 setInterval(() => {
   const now = Date.now();
   for (const [key, val] of rateLimitStore.entries()) {
@@ -111,7 +99,6 @@ function broadcastLiveEvent(projectId: string, event: object) {
     }
   }
 
-  // 死んだ接続を削除
   if (deadControllers.length > 0) {
     liveEventClients.set(
       projectId,
@@ -139,10 +126,7 @@ function getCORSHeaders(origin: string | null, allowedDomains: string[]): Header
         return false;
       }
     });
-    headers.set(
-      "Access-Control-Allow-Origin",
-      isAllowed ? origin : "null"
-    );
+    headers.set("Access-Control-Allow-Origin", isAllowed ? origin : "null");
   }
 
   return headers;
@@ -150,8 +134,7 @@ function getCORSHeaders(origin: string | null, allowedDomains: string[]): Header
 
 // ========== メインハンドラ ==========
 
-export async function OPTIONS(req: NextRequest) {
-  // プリフライトリクエスト処理
+export async function OPTIONS() {
   return new Response(null, {
     status: 204,
     headers: {
@@ -164,7 +147,6 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  // Rate limit
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     req.headers.get("x-real-ip") ||
@@ -173,14 +155,10 @@ export async function POST(req: NextRequest) {
   if (!checkRateLimit(ip)) {
     return Response.json(
       { error: "Too many requests" },
-      {
-        status: 429,
-        headers: { "Retry-After": "60" },
-      }
+      { status: 429, headers: { "Retry-After": "60" } }
     );
   }
 
-  // リクエストボディをパース
   let body: unknown;
   try {
     body = await req.json();
@@ -188,7 +166,6 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  // バリデーション
   const parsed = ingestSchema.safeParse(body);
   if (!parsed.success) {
     return Response.json(
@@ -199,7 +176,6 @@ export async function POST(req: NextRequest) {
 
   const data = parsed.data;
 
-  // プロジェクト取得
   const project = await db.project.findUnique({
     where: { publicKey: data.projectKey },
   });
@@ -208,16 +184,15 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Invalid project key" }, { status: 401 });
   }
 
-  // IP除外チェック
-  if (project.excludedIps.includes(ip)) {
-    return Response.json({ ok: true }); // サイレントに無視
+  const excludedIps = JSON.parse(project.excludedIps) as string[];
+  if (excludedIps.includes(ip)) {
+    return Response.json({ ok: true });
   }
 
-  // CORS ヘッダー
   const origin = req.headers.get("origin");
-  const corsHeaders = getCORSHeaders(origin, project.allowedDomains);
+  const allowedDomains = JSON.parse(project.allowedDomains) as string[];
+  const corsHeaders = getCORSHeaders(origin, allowedDomains);
 
-  // User-Agent 解析
   const ua = req.headers.get("user-agent") || "";
   const device = detectDevice(ua);
   const browser = detectBrowser(ua);
@@ -274,11 +249,10 @@ export async function POST(req: NextRequest) {
       }
 
       case "page_view": {
-        // セッションのpageview数を増やす
         await db.session.update({
           where: { sessionId: data.sessionId },
           data: { pageviewCount: { increment: 1 } },
-        }).catch(() => {}); // セッションが存在しない場合は無視
+        }).catch(() => {});
 
         await db.pageView.create({
           data: {
@@ -298,7 +272,7 @@ export async function POST(req: NextRequest) {
             visitorId: data.visitorId,
             eventType: "page_view",
             path: data.path,
-            props: data.props ? sanitizePII(data.props as Record<string, unknown>) as Prisma.InputJsonValue : undefined,
+            props: data.props ? JSON.stringify(sanitizePII(data.props as Record<string, unknown>)) : undefined,
             timestamp,
           },
         });
@@ -313,16 +287,9 @@ export async function POST(req: NextRequest) {
       }
 
       case "engagement_ping": {
-        // セッションをエンゲージド状態に更新
         await db.session.update({
           where: { sessionId: data.sessionId },
-          data: {
-            engaged: true,
-            bounced: false,
-            duration: {
-              increment: 10, // 10秒ごとのping
-            },
-          },
+          data: { engaged: true, bounced: false, duration: { increment: 10 } },
         }).catch(() => {});
         break;
       }
@@ -330,7 +297,6 @@ export async function POST(req: NextRequest) {
       case "scroll_depth": {
         const percent = (data.props as { percent?: number } | undefined)?.percent ?? 0;
 
-        // 最大スクロール更新
         const session = await db.session.findUnique({
           where: { sessionId: data.sessionId },
           select: { maxScroll: true, id: true },
@@ -354,7 +320,7 @@ export async function POST(req: NextRequest) {
             visitorId: data.visitorId,
             eventType: "scroll_depth",
             path: data.path,
-            props: { percent } as Prisma.InputJsonValue,
+            props: JSON.stringify({ percent }),
             timestamp,
           },
         });
@@ -362,9 +328,7 @@ export async function POST(req: NextRequest) {
       }
 
       case "cta_click": {
-        const sanitizedProps: Prisma.InputJsonValue = sanitizePII(
-          (data.props as Record<string, unknown>) || {}
-        ) as Prisma.InputJsonValue;
+        const sanitizedProps = sanitizePII((data.props as Record<string, unknown>) || {});
 
         await db.event.create({
           data: {
@@ -373,12 +337,11 @@ export async function POST(req: NextRequest) {
             visitorId: data.visitorId,
             eventType: "cta_click",
             path: data.path,
-            props: sanitizedProps,
+            props: JSON.stringify(sanitizedProps),
             timestamp,
           },
         });
 
-        // CTAクリックはengagedとみなす
         await db.session.update({
           where: { sessionId: data.sessionId },
           data: { engaged: true, bounced: false },
@@ -396,16 +359,10 @@ export async function POST(req: NextRequest) {
 
       case "conversion": {
         const convName = data.conversionName || "unknown";
-        const sanitizedProps: Prisma.InputJsonValue = sanitizePII(
-          (data.props as Record<string, unknown>) || {}
-        ) as Prisma.InputJsonValue;
+        const sanitizedProps = sanitizePII((data.props as Record<string, unknown>) || {});
 
-        // 重複除外: 同セッション×同名CVは1回のみ
         const existingConv = await db.conversion.findFirst({
-          where: {
-            sessionId: data.sessionId,
-            conversionName: convName,
-          },
+          where: { sessionId: data.sessionId, conversionName: convName },
         });
 
         if (!existingConv) {
@@ -416,7 +373,7 @@ export async function POST(req: NextRequest) {
               visitorId: data.visitorId,
               conversionName: convName,
               path: data.path,
-              props: sanitizedProps,
+              props: JSON.stringify(sanitizedProps),
               timestamp,
             },
           });
@@ -433,9 +390,7 @@ export async function POST(req: NextRequest) {
       }
 
       case "custom": {
-        const sanitizedProps: Prisma.InputJsonValue = sanitizePII(
-          (data.props as Record<string, unknown>) || {}
-        ) as Prisma.InputJsonValue;
+        const sanitizedProps = sanitizePII((data.props as Record<string, unknown>) || {});
 
         await db.event.create({
           data: {
@@ -445,7 +400,7 @@ export async function POST(req: NextRequest) {
             eventType: "custom",
             eventName: data.eventName,
             path: data.path,
-            props: sanitizedProps,
+            props: JSON.stringify(sanitizedProps),
             timestamp,
           },
         });
@@ -461,7 +416,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // URL一致のCV自動判定
     if (data.eventType === "page_view" && data.path) {
       await checkUrlConversionRules(project.id, data.sessionId, data.visitorId, data.path, timestamp);
     }
@@ -493,43 +447,27 @@ async function checkUrlConversionRules(
   });
 
   for (const rule of rules) {
-    const config = rule.config as { pattern?: string; matchType?: string };
+    const config = JSON.parse(rule.config) as { pattern?: string; matchType?: string };
     const pattern = config.pattern;
     const matchType = config.matchType || "contains";
 
     if (!pattern) continue;
 
     let matched = false;
-    if (matchType === "equals") {
-      matched = path === pattern;
-    } else if (matchType === "contains") {
-      matched = path.includes(pattern);
-    } else if (matchType === "starts_with") {
-      matched = path.startsWith(pattern);
-    } else if (matchType === "regex") {
-      try {
-        matched = new RegExp(pattern).test(path);
-      } catch {
-        continue;
-      }
+    if (matchType === "equals") matched = path === pattern;
+    else if (matchType === "contains") matched = path.includes(pattern);
+    else if (matchType === "starts_with") matched = path.startsWith(pattern);
+    else if (matchType === "regex") {
+      try { matched = new RegExp(pattern).test(path); } catch { continue; }
     }
 
     if (matched) {
-      // 重複除外
       const existing = await db.conversion.findFirst({
         where: { sessionId, conversionName: rule.name },
       });
       if (!existing) {
         await db.conversion.create({
-          data: {
-            projectId,
-            sessionId,
-            visitorId,
-            trackingRuleId: rule.id,
-            conversionName: rule.name,
-            path,
-            timestamp,
-          },
+          data: { projectId, sessionId, visitorId, trackingRuleId: rule.id, conversionName: rule.name, path, timestamp },
         });
       }
     }

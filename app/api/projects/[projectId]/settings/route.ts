@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 const updateSettingsSchema = z.object({
@@ -9,26 +8,11 @@ const updateSettingsSchema = z.object({
   excludedIps: z.array(z.string()).optional(),
 });
 
-async function verifyOwner(projectId: string, userId: string) {
-  return db.projectMember.findFirst({
-    where: { projectId, userId, role: { in: ["owner", "admin"] } },
-  });
-}
-
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const { projectId } = await params;
-  const member = await db.projectMember.findUnique({
-    where: { projectId_userId: { projectId, userId: session.user.id } },
-  });
-  if (!member) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const project = await db.project.findUnique({
     where: { id: projectId },
@@ -36,7 +20,7 @@ export async function GET(
       id: true,
       name: true,
       publicKey: true,
-      // secretKey は返さない（セキュリティ上）
+      secretKey: true,
       allowedDomains: true,
       excludedIps: true,
       createdAt: true,
@@ -45,30 +29,20 @@ export async function GET(
 
   if (!project) return Response.json({ error: "Not found" }, { status: 404 });
 
-  // オーナーのみ secretKey を返す
-  if (member.role === "owner") {
-    const full = await db.project.findUnique({
-      where: { id: projectId },
-      select: { secretKey: true },
-    });
-    return Response.json({ project: { ...project, secretKey: full?.secretKey } });
-  }
-
-  return Response.json({ project });
+  return Response.json({
+    project: {
+      ...project,
+      allowedDomains: JSON.parse(project.allowedDomains) as string[],
+      excludedIps: JSON.parse(project.excludedIps) as string[],
+    },
+  });
 }
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const { projectId } = await params;
-  const member = await verifyOwner(projectId, session.user.id);
-  if (!member) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   let body: unknown;
   try {
@@ -85,9 +59,18 @@ export async function PATCH(
     );
   }
 
+  const updateData: Record<string, unknown> = {};
+  if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
+  if (parsed.data.allowedDomains !== undefined) {
+    updateData.allowedDomains = JSON.stringify(parsed.data.allowedDomains);
+  }
+  if (parsed.data.excludedIps !== undefined) {
+    updateData.excludedIps = JSON.stringify(parsed.data.excludedIps);
+  }
+
   const project = await db.project.update({
     where: { id: projectId },
-    data: parsed.data,
+    data: updateData,
     select: {
       id: true,
       name: true,
@@ -97,5 +80,11 @@ export async function PATCH(
     },
   });
 
-  return Response.json({ project });
+  return Response.json({
+    project: {
+      ...project,
+      allowedDomains: JSON.parse(project.allowedDomains) as string[],
+      excludedIps: JSON.parse(project.excludedIps) as string[],
+    },
+  });
 }

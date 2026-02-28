@@ -2,15 +2,15 @@
  * Kaiseki Analytics - AI Insights API
  * POST /api/projects/:projectId/insights
  *
- * メトリクスデータを受け取り、Claude AIによる日本語解説を返す
+ * メトリクスデータを受け取り、GPTによる日本語解説を返す
  */
 
 import { NextRequest } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { db } from "@/lib/db";
 import { getDateRange, type DateRange } from "@/lib/utils";
 
-const client = new Anthropic();
+const client = new OpenAI();
 
 export async function POST(
   req: NextRequest,
@@ -18,9 +18,9 @@ export async function POST(
 ) {
   const { projectId } = await params;
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.OPENAI_API_KEY) {
     return Response.json(
-      { error: "ANTHROPIC_API_KEY が設定されていません" },
+      { error: "OPENAI_API_KEY が設定されていません" },
       { status: 503 }
     );
   }
@@ -157,25 +157,33 @@ ${deviceBreakdown.map((d) => `- ${d.device}: ${d.share}%`).join("\n")}
 ${topConversions.length > 0 ? `### CV内訳\n${topConversions.map((c) => `- ${c.name}: ${c.count}件`).join("\n")}` : ""}
 `.trim();
 
-  const message = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+  const completion = await client.chat.completions.create({
+    model: "gpt-4o-mini",
     max_tokens: 1024,
+    response_format: { type: "json_object" },
     messages: [
       {
+        role: "system",
+        content:
+          "あなたはWebマーケティングのアナリストです。アクセス解析データを分析し、マーケターに向けた実用的なインサイトを日本語で提供してください。必ずJSON形式のみで返答してください。",
+      },
+      {
         role: "user",
-        content: `あなたはWebマーケティングのアナリストです。以下のアクセス解析データを分析し、マーケターに向けた実用的なインサイトを日本語で提供してください。
+        content: `以下のアクセス解析データを分析してください。
 
 ${dataContext}
 
-以下の形式でJSON配列を返してください。他のテキストは不要です。
+以下の形式でJSONを返してください。
 
-[
-  {
-    "type": "positive" | "warning" | "neutral",
-    "title": "インサイトのタイトル（20文字以内）",
-    "body": "具体的な分析と改善提案（100〜150文字）"
-  }
-]
+{
+  "insights": [
+    {
+      "type": "positive" | "warning" | "neutral",
+      "title": "インサイトのタイトル（20文字以内）",
+      "body": "具体的な分析と改善提案（100〜150文字）"
+    }
+  ]
+}
 
 条件:
 - インサイトは3〜5個
@@ -186,16 +194,9 @@ ${dataContext}
     ],
   });
 
-  const raw =
-    message.content[0].type === "text" ? message.content[0].text.trim() : "[]";
-
-  // JSONブロックを抽出
-  const jsonMatch = raw.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) {
-    return Response.json({ insights: [], raw }, { status: 200 });
-  }
-
-  const insights = JSON.parse(jsonMatch[0]);
+  const raw = completion.choices[0]?.message?.content ?? "{}";
+  const parsed = JSON.parse(raw);
+  const insights = Array.isArray(parsed.insights) ? parsed.insights : [];
 
   return Response.json({ insights, generatedAt: new Date().toISOString() });
 }

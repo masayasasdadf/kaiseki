@@ -73,7 +73,7 @@ export function AIInsights({ projectId, range }: AIInsightsProps) {
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-violet-500" />
           <h2 className="text-sm font-semibold text-slate-800">AI分析・解説</h2>
-          <span className="text-xs text-slate-400 font-normal">Powered by Claude</span>
+          <span className="text-xs text-slate-400 font-normal">Powered by GPT</span>
         </div>
         <button
           onClick={generate}

@@ -115,9 +115,13 @@ function getCORSHeaders(origin: string | null, allowedDomains: string[]): Header
   headers.set("Content-Type", "application/json");
   headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
   headers.set("Access-Control-Allow-Headers", "Content-Type");
+  headers.set("Vary", "Origin");
 
-  if (allowedDomains.length === 0 || !origin) {
+  if (!origin) {
     headers.set("Access-Control-Allow-Origin", "*");
+  } else if (allowedDomains.length === 0) {
+    headers.set("Access-Control-Allow-Origin", origin);
+    headers.set("Access-Control-Allow-Credentials", "true");
   } else {
     const isAllowed = allowedDomains.some((domain) => {
       try {
@@ -128,6 +132,7 @@ function getCORSHeaders(origin: string | null, allowedDomains: string[]): Header
       }
     });
     headers.set("Access-Control-Allow-Origin", isAllowed ? origin : "null");
+    if (isAllowed) headers.set("Access-Control-Allow-Credentials", "true");
   }
 
   return headers;
@@ -135,14 +140,17 @@ function getCORSHeaders(origin: string | null, allowedDomains: string[]): Header
 
 // ========== メインハンドラ ==========
 
-export async function OPTIONS() {
+export async function OPTIONS(req: NextRequest) {
+  const origin = req.headers.get("origin") || "*";
   return new Response(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Credentials": "true",
       "Access-Control-Max-Age": "86400",
+      "Vary": "Origin",
     },
   });
 }

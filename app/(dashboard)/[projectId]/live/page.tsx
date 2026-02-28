@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { Header } from "@/components/dashboard/header";
 import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
@@ -13,17 +13,15 @@ import {
   Circle,
 } from "lucide-react";
 import { type DateRange } from "@/lib/utils";
-import { CHANNEL_COLORS } from "@/lib/attribution";
 
 interface LiveEvent {
-  id: string;
+  uid: string;
   type: string;
-  sessionId?: string;
-  path?: string;
-  conversionName?: string;
-  channelGroup?: string;
-  eventName?: string;
-  props?: Record<string, unknown>;
+  sessionId: string;
+  path?: string | null;
+  channelGroup?: string | null;
+  conversionName?: string | null;
+  eventName?: string | null;
   timestamp: string;
 }
 
@@ -44,45 +42,49 @@ export default function LivePage() {
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const [stats, setStats] = useState({ sessions: 0, pageviews: 0, conversions: 0 });
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const lastFetchRef = useRef<string>(new Date(Date.now() - 60_000).toISOString());
+  const seenUidsRef = useRef<Set<string>>(new Set());
+
+  const fetchLiveData = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/live-data?since=${encodeURIComponent(lastFetchRef.current)}`
+      );
+      if (!res.ok) {
+        setConnected(false);
+        return;
+      }
+      const data: {
+        stats: { sessions: number; pageviews: number; conversions: number };
+        events: LiveEvent[];
+        serverTime: string;
+      } = await res.json();
+
+      setConnected(true);
+      setStats(data.stats);
+
+      // 新しいイベントだけ追加（重複排除）
+      const newEvents = data.events.filter((e) => !seenUidsRef.current.has(e.uid));
+      newEvents.forEach((e) => seenUidsRef.current.add(e.uid));
+
+      if (newEvents.length > 0) {
+        setEvents((prev) => [...newEvents, ...prev].slice(0, 100));
+      }
+
+      lastFetchRef.current = data.serverTime;
+    } catch {
+      setConnected(false);
+    }
+  }, [projectId]);
 
   useEffect(() => {
-    const es = new EventSource(`/api/live?projectId=${projectId}`);
-    eventSourceRef.current = es;
+    // 初回即時取得（過去60秒分）
+    fetchLiveData();
 
-    es.onopen = () => setConnected(true);
-    es.onerror = () => setConnected(false);
-
-    es.onmessage = (e) => {
-      try {
-        const event: Omit<LiveEvent, "id"> = JSON.parse(e.data);
-        if (event.type === "connected") return;
-
-        const newEvent: LiveEvent = {
-          ...event,
-          id: Math.random().toString(36).slice(2),
-          timestamp: event.timestamp || new Date().toISOString(),
-        };
-
-        setEvents((prev) => [newEvent, ...prev].slice(0, 100));
-
-        // 統計更新
-        setStats((prev) => ({
-          sessions: prev.sessions + (event.type === "session_start" ? 1 : 0),
-          pageviews: prev.pageviews + (event.type === "page_view" ? 1 : 0),
-          conversions: prev.conversions + (event.type === "conversion" ? 1 : 0),
-        }));
-      } catch {
-        // ignore parse errors
-      }
-    };
-
-    return () => {
-      es.close();
-      setConnected(false);
-    };
-  }, [projectId]);
+    // 5秒ごとにポーリング
+    const interval = setInterval(fetchLiveData, 5_000);
+    return () => clearInterval(interval);
+  }, [fetchLiveData]);
 
   const formatTime = (ts: string) => {
     const d = new Date(ts);
@@ -155,7 +157,7 @@ export default function LivePage() {
           </div>
         </div>
 
-        {/* リアルタイム統計 */}
+        {/* リアルタイム統計（DBから取得・今日の累計） */}
         <div className="grid grid-cols-3 gap-4">
           {[
             {
@@ -186,7 +188,7 @@ export default function LivePage() {
                 {stat.value}
               </p>
               <p className="text-xs text-slate-400 mt-1">
-                {easyMode ? "このセッション中" : "since page load"}
+                {easyMode ? "今日の合計" : "today's total"}
               </p>
             </div>
           ))}
@@ -200,7 +202,10 @@ export default function LivePage() {
             </h2>
             {events.length > 0 && (
               <button
-                onClick={() => setEvents([])}
+                onClick={() => {
+                  setEvents([]);
+                  seenUidsRef.current.clear();
+                }}
                 className="text-xs text-slate-400 hover:text-slate-600"
               >
                 クリア
@@ -208,10 +213,7 @@ export default function LivePage() {
             )}
           </div>
 
-          <div
-            ref={containerRef}
-            className="space-y-2 max-h-[500px] overflow-y-auto"
-          >
+          <div className="space-y-2 max-h-[500px] overflow-y-auto">
             {events.length === 0 ? (
               <div className="text-center py-16 text-slate-400">
                 <Radio className="h-10 w-10 mx-auto mb-3 opacity-30" />
@@ -229,7 +231,7 @@ export default function LivePage() {
             ) : (
               events.map((event) => (
                 <div
-                  key={event.id}
+                  key={event.uid}
                   className={`flex items-start gap-3 rounded-lg p-3 ${getEventBg(event.type)}`}
                 >
                   <div className="shrink-0 mt-0.5">

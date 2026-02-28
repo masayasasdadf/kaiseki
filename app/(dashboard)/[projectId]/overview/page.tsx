@@ -10,6 +10,7 @@ import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
 import { getEmptyState } from "@/lib/terminology";
 import { formatPercent, calcChangeRate, type DateRange } from "@/lib/utils";
 import { Loader2, RefreshCw } from "lucide-react";
+import { AIInsights } from "@/components/dashboard/ai-insights";
 
 interface MetricsData {
   kpi: {
@@ -91,13 +92,9 @@ export default function OverviewPage() {
         {/* ページタイトル */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              {easyMode ? "ダッシュボード" : "Overview"}
-            </h1>
+            <h1 className="text-2xl font-bold text-slate-900">ダッシュボード</h1>
             <p className="text-sm text-slate-500 mt-0.5">
-              {easyMode
-                ? "サイト全体の状況をひと目で確認できます"
-                : "Site-wide performance summary"}
+              サイト全体のパフォーマンスをまとめて確認
             </p>
           </div>
           <button
@@ -164,30 +161,22 @@ export default function OverviewPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* トレンド折れ線 */}
               <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-5">
-                <h2 className="text-base font-semibold text-slate-800 mb-4">
-                  {easyMode ? "訪問数の推移" : "Session Trend"}
-                </h2>
+                <h2 className="text-base font-semibold text-slate-800 mb-4">セッション推移</h2>
                 <TrendChart data={data.trend} />
               </div>
 
               {/* ページビュー・滞在時間 */}
               <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
-                <h2 className="text-base font-semibold text-slate-800">
-                  {easyMode ? "その他の指標" : "Other Metrics"}
-                </h2>
+                <h2 className="text-base font-semibold text-slate-800">サブ指標</h2>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between py-2 border-b border-slate-100">
-                    <span className="text-sm text-slate-600">
-                      {easyMode ? "ページ閲覧数" : "Page Views"}
-                    </span>
+                    <span className="text-sm text-slate-600">ページビュー</span>
                     <span className="text-sm font-semibold text-slate-900">
                       {data.kpi.pageviews.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-2 border-b border-slate-100">
-                    <span className="text-sm text-slate-600">
-                      {easyMode ? "平均滞在時間" : "Avg. Session Duration"}
-                    </span>
+                    <span className="text-sm text-slate-600">平均セッション時間</span>
                     <span className="text-sm font-semibold text-slate-900">
                       {data.kpi.avgDuration < 60
                         ? `${data.kpi.avgDuration}秒`
@@ -195,9 +184,7 @@ export default function OverviewPage() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-2">
-                    <span className="text-sm text-slate-600">
-                      {easyMode ? "成果率" : "CVR"}
-                    </span>
+                    <span className="text-sm text-slate-600">CVR</span>
                     <span className="text-sm font-semibold text-indigo-700">
                       {formatPercent(data.kpi.cvr)}
                     </span>
@@ -209,7 +196,7 @@ export default function OverviewPage() {
             {/* チャネル別テーブル */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
               <h2 className="text-base font-semibold text-slate-800 mb-4">
-                {easyMode ? "どこから来たか" : "Acquisition by Channel"}
+                {easyMode ? "どこから来たか" : "チャネル別流入"}
               </h2>
               <ChannelTable
                 data={data.channels}
@@ -217,10 +204,13 @@ export default function OverviewPage() {
               />
             </div>
 
+            {/* AI分析 */}
+            <AIInsights projectId={projectId} range={dateRange} />
+
             {/* LP別テーブル */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
               <h2 className="text-base font-semibold text-slate-800 mb-4">
-                {easyMode ? "最初に見られたページ" : "Landing Pages"}
+                {easyMode ? "最初に見られたページ" : "ランディングページ別"}
               </h2>
               {data.landingPages.length === 0 ? (
                 <p className="text-sm text-slate-400 py-4">
@@ -232,10 +222,10 @@ export default function OverviewPage() {
                     <thead>
                       <tr className="border-b border-slate-200">
                         {[
-                          easyMode ? "ページ" : "Path",
-                          easyMode ? "訪問数" : "Sessions",
-                          easyMode ? "訪問した人" : "Users",
-                          easyMode ? "すぐ離脱した割合" : "Bounce Rate",
+                          easyMode ? "ページ" : "パス",
+                          easyMode ? "訪問数" : "セッション数",
+                          easyMode ? "訪問した人" : "ユーザー数",
+                          easyMode ? "すぐ離脱した割合" : "直帰率",
                         ].map((h) => (
                           <th
                             key={h}

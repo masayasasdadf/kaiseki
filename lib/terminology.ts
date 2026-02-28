@@ -56,15 +56,15 @@ export interface TermDictionary {
 export const TERMINOLOGY: TermDictionary = {
   normal: {
     sessions: {
-      label: "Sessions",
+      label: "セッション数",
       description: "訪問者がサイトに滞在した一連のセッション数",
     },
     users: {
-      label: "Users",
+      label: "ユーザー数",
       description: "計測期間中にサイトを訪問したユニークユーザー数",
     },
     conversions: {
-      label: "Conversions",
+      label: "CV数",
       description: "設定したコンバージョン条件を達成した数",
     },
     cvr: {
@@ -72,69 +72,69 @@ export const TERMINOLOGY: TermDictionary = {
       description: "セッションに対するコンバージョン率",
     },
     bounceRate: {
-      label: "Bounce Rate",
+      label: "直帰率",
       description:
         "1ページのみ閲覧しエンゲージメントなしで離脱したセッションの割合",
     },
     engagementRate: {
-      label: "Engagement Rate",
+      label: "エンゲージメント率",
       description:
         "10秒以上の滞在・25%以上のスクロール・クリックのいずれかを満たしたセッションの割合",
     },
     channel: {
-      label: "Channel",
+      label: "チャネル",
       description: "トラフィックの流入チャネル（検索・SNS・広告等）",
     },
     campaign: {
-      label: "Campaign",
+      label: "キャンペーン",
       description: "UTMパラメータで識別する広告キャンペーン",
     },
     landingPage: {
-      label: "Landing Page",
+      label: "ランディングページ",
       description: "セッション開始時に最初に閲覧されたページ",
     },
     scrollDepth: {
-      label: "Scroll Depth",
+      label: "スクロール深度",
       description: "ページをどこまでスクロールしたかの最大割合",
     },
     ctaClick: {
-      label: "CTA Click",
+      label: "CTAクリック",
       description: "data-track属性を持つ要素のクリック数",
     },
     funnel: {
-      label: "Funnel",
+      label: "ファネル",
       description: "コンバージョンまでの各ステップの通過率",
     },
     pageViews: {
-      label: "Page Views",
+      label: "ページビュー",
       description: "総ページ閲覧数",
     },
     avgDuration: {
-      label: "Avg. Session Duration",
+      label: "平均セッション時間",
       description: "平均セッション継続時間（秒）",
     },
     newVisitors: {
-      label: "New Visitors",
+      label: "新規ユーザー",
       description: "初回訪問のユーザー数",
     },
     returningVisitors: {
-      label: "Returning Visitors",
+      label: "リピーターユーザー",
       description: "2回以上訪問したユーザー数",
     },
     topPages: {
-      label: "Top Pages",
+      label: "上位ページ",
       description: "閲覧数上位のページ一覧",
     },
     device: {
-      label: "Device",
+      label: "デバイス",
       description: "訪問者のデバイス種別（Desktop / Mobile / Tablet）",
     },
     browser: {
-      label: "Browser",
+      label: "ブラウザ",
       description: "訪問者のブラウザ",
     },
     country: {
-      label: "Country",
+      label: "国",
       description: "訪問者の国",
     },
     utmSource: {
@@ -158,39 +158,39 @@ export const TERMINOLOGY: TermDictionary = {
       description: "検索キーワードを識別するUTMパラメータ",
     },
     referrer: {
-      label: "Referrer",
+      label: "参照元URL",
       description: "訪問前に閲覧していたページのURL",
     },
     directTraffic: {
-      label: "Direct",
+      label: "ダイレクト",
       description: "URLを直接入力またはブックマークからの流入",
     },
     organicSearch: {
-      label: "Organic Search",
+      label: "オーガニック検索",
       description: "Google等の検索エンジンからの自然流入",
     },
     paidSearch: {
-      label: "Paid Search",
+      label: "リスティング広告",
       description: "Google広告等の検索連動型広告からの流入",
     },
     organicSocial: {
-      label: "Organic Social",
+      label: "SNS（自然流入）",
       description: "SNSの投稿・プロフィール等からの自然流入",
     },
     paidSocial: {
-      label: "Paid Social",
+      label: "SNS広告",
       description: "SNS広告からの流入",
     },
     email: {
-      label: "Email",
+      label: "メール",
       description: "メールマガジン等からの流入",
     },
     affiliate: {
-      label: "Affiliate",
+      label: "アフィリエイト",
       description: "アフィリエイトサイトからの流入",
     },
     other: {
-      label: "Other",
+      label: "その他",
       description: "上記に分類されない流入",
     },
   },

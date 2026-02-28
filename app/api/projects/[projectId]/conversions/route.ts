@@ -39,9 +39,7 @@ export async function GET(
     orderBy: { createdAt: "desc" },
   });
 
-  return Response.json({
-    rules: rules.map((r) => ({ ...r, config: JSON.parse(r.config) })),
-  });
+  return Response.json({ rules });
 }
 
 export async function POST(
@@ -70,7 +68,7 @@ export async function POST(
       projectId,
       name: parsed.data.name,
       type: parsed.data.type,
-      config: JSON.stringify(parsed.data.config),
+      config: parsed.data.config,
     },
   });
 
@@ -79,9 +77,9 @@ export async function POST(
       projectId,
       trackingRuleId: rule.id,
       action: "created",
-      details: JSON.stringify({ rule: parsed.data }),
+      details: { rule: parsed.data },
     },
   });
 
-  return Response.json({ rule: { ...rule, config: JSON.parse(rule.config) } }, { status: 201 });
+  return Response.json({ rule }, { status: 201 });
 }

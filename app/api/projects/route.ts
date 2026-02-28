@@ -14,18 +14,12 @@ export async function GET() {
       name: true,
       publicKey: true,
       createdAt: true,
-      allowedDomains: true,
       _count: { select: { sessions: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return Response.json({
-    projects: projects.map((p) => ({
-      ...p,
-      allowedDomains: JSON.parse(p.allowedDomains) as string[],
-    })),
-  });
+  return Response.json({ projects });
 }
 
 export async function POST(req: NextRequest) {

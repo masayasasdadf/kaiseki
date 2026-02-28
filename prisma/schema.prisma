@@ -1,11 +1,12 @@
 // Kaiseki Analytics - Prisma Schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-1.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -16,8 +17,8 @@ model Project {
   name           String
   publicKey      String   @unique @default(cuid())
   secretKey      String   @unique
-  allowedDomains String   @default("[]")
-  excludedIps    String   @default("[]")
+  allowedDomains String[] @default([])
+  excludedIps    String[] @default([])
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -96,7 +97,7 @@ model Event {
   eventType String
   eventName String?
   path      String?
-  props     String?
+  props     Json?
   timestamp DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -116,7 +117,7 @@ model Conversion {
   trackingRuleId String?
   conversionName String
   path           String?
-  props          String?
+  props          Json?
   timestamp      DateTime @default(now())
 
   project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -132,7 +133,7 @@ model TrackingRule {
   projectId String
   name      String
   type      String
-  config    String
+  config    Json
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -151,7 +152,7 @@ model AuditLog {
   trackingRuleId String?
   action         String
   actorEmail     String?
-  details        String?
+  details        Json?
   timestamp      DateTime @default(now())
 
   project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)

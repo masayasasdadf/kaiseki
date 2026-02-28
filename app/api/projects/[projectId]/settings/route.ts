@@ -29,13 +29,7 @@ export async function GET(
 
   if (!project) return Response.json({ error: "Not found" }, { status: 404 });
 
-  return Response.json({
-    project: {
-      ...project,
-      allowedDomains: JSON.parse(project.allowedDomains) as string[],
-      excludedIps: JSON.parse(project.excludedIps) as string[],
-    },
-  });
+  return Response.json({ project });
 }
 
 export async function PATCH(
@@ -59,18 +53,9 @@ export async function PATCH(
     );
   }
 
-  const updateData: Record<string, unknown> = {};
-  if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
-  if (parsed.data.allowedDomains !== undefined) {
-    updateData.allowedDomains = JSON.stringify(parsed.data.allowedDomains);
-  }
-  if (parsed.data.excludedIps !== undefined) {
-    updateData.excludedIps = JSON.stringify(parsed.data.excludedIps);
-  }
-
   const project = await db.project.update({
     where: { id: projectId },
-    data: updateData,
+    data: parsed.data,
     select: {
       id: true,
       name: true,
@@ -80,11 +65,5 @@ export async function PATCH(
     },
   });
 
-  return Response.json({
-    project: {
-      ...project,
-      allowedDomains: JSON.parse(project.allowedDomains) as string[],
-      excludedIps: JSON.parse(project.excludedIps) as string[],
-    },
-  });
+  return Response.json({ project });
 }

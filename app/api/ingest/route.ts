@@ -5,6 +5,7 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { classifyChannel } from "@/lib/attribution";
 import { sanitizePII, detectDevice, detectBrowser, detectOS } from "@/lib/utils";
@@ -184,14 +185,12 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Invalid project key" }, { status: 401 });
   }
 
-  const excludedIps = JSON.parse(project.excludedIps) as string[];
-  if (excludedIps.includes(ip)) {
+  if (project.excludedIps.includes(ip)) {
     return Response.json({ ok: true });
   }
 
   const origin = req.headers.get("origin");
-  const allowedDomains = JSON.parse(project.allowedDomains) as string[];
-  const corsHeaders = getCORSHeaders(origin, allowedDomains);
+  const corsHeaders = getCORSHeaders(origin, project.allowedDomains);
 
   const ua = req.headers.get("user-agent") || "";
   const device = detectDevice(ua);
@@ -272,7 +271,9 @@ export async function POST(req: NextRequest) {
             visitorId: data.visitorId,
             eventType: "page_view",
             path: data.path,
-            props: data.props ? JSON.stringify(sanitizePII(data.props as Record<string, unknown>)) : undefined,
+            props: data.props
+              ? sanitizePII(data.props as Record<string, unknown>) as Prisma.InputJsonValue
+              : undefined,
             timestamp,
           },
         });
@@ -320,7 +321,7 @@ export async function POST(req: NextRequest) {
             visitorId: data.visitorId,
             eventType: "scroll_depth",
             path: data.path,
-            props: JSON.stringify({ percent }),
+            props: { percent } as Prisma.InputJsonValue,
             timestamp,
           },
         });
@@ -328,7 +329,9 @@ export async function POST(req: NextRequest) {
       }
 
       case "cta_click": {
-        const sanitizedProps = sanitizePII((data.props as Record<string, unknown>) || {});
+        const sanitizedProps = sanitizePII(
+          (data.props as Record<string, unknown>) || {}
+        ) as Prisma.InputJsonValue;
 
         await db.event.create({
           data: {
@@ -337,7 +340,7 @@ export async function POST(req: NextRequest) {
             visitorId: data.visitorId,
             eventType: "cta_click",
             path: data.path,
-            props: JSON.stringify(sanitizedProps),
+            props: sanitizedProps,
             timestamp,
           },
         });
@@ -359,7 +362,9 @@ export async function POST(req: NextRequest) {
 
       case "conversion": {
         const convName = data.conversionName || "unknown";
-        const sanitizedProps = sanitizePII((data.props as Record<string, unknown>) || {});
+        const sanitizedProps = sanitizePII(
+          (data.props as Record<string, unknown>) || {}
+        ) as Prisma.InputJsonValue;
 
         const existingConv = await db.conversion.findFirst({
           where: { sessionId: data.sessionId, conversionName: convName },
@@ -373,7 +378,7 @@ export async function POST(req: NextRequest) {
               visitorId: data.visitorId,
               conversionName: convName,
               path: data.path,
-              props: JSON.stringify(sanitizedProps),
+              props: sanitizedProps,
               timestamp,
             },
           });
@@ -390,7 +395,9 @@ export async function POST(req: NextRequest) {
       }
 
       case "custom": {
-        const sanitizedProps = sanitizePII((data.props as Record<string, unknown>) || {});
+        const sanitizedProps = sanitizePII(
+          (data.props as Record<string, unknown>) || {}
+        ) as Prisma.InputJsonValue;
 
         await db.event.create({
           data: {
@@ -400,7 +407,7 @@ export async function POST(req: NextRequest) {
             eventType: "custom",
             eventName: data.eventName,
             path: data.path,
-            props: JSON.stringify(sanitizedProps),
+            props: sanitizedProps,
             timestamp,
           },
         });
@@ -447,7 +454,7 @@ async function checkUrlConversionRules(
   });
 
   for (const rule of rules) {
-    const config = JSON.parse(rule.config) as { pattern?: string; matchType?: string };
+    const config = rule.config as { pattern?: string; matchType?: string };
     const pattern = config.pattern;
     const matchType = config.matchType || "contains";
 

@@ -24,12 +24,20 @@ export async function GET(
       allowedDomains: true,
       excludedIps: true,
       createdAt: true,
+      searchConsoleProperty: true,
+      searchConsoleRefreshToken: true,
     },
   });
 
   if (!project) return Response.json({ error: "Not found" }, { status: 404 });
 
-  return Response.json({ project });
+  return Response.json({
+    project: {
+      ...project,
+      searchConsoleConnected: !!project.searchConsoleRefreshToken,
+      searchConsoleRefreshToken: undefined,
+    },
+  });
 }
 
 export async function PATCH(

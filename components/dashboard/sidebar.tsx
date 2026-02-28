@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -11,6 +12,7 @@ import {
   Settings,
   ChevronDown,
   Plus,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
@@ -67,19 +69,39 @@ const NAV_ITEMS = [
 export function Sidebar({ projects, currentProjectId }: SidebarProps) {
   const pathname = usePathname();
   const { easyMode } = useEasyMode();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const currentProject = projects.find((p) => p.id === currentProjectId);
 
-  return (
-    <aside className="w-60 shrink-0 flex flex-col bg-slate-900 min-h-screen">
+  // ヘッダーのハンバーガーボタンからのイベントを受け取る
+  useEffect(() => {
+    const handler = () => setMobileOpen(true);
+    window.addEventListener("mobile-nav-open", handler);
+    return () => window.removeEventListener("mobile-nav-open", handler);
+  }, []);
+
+  // ルート変更時にモバイルメニューを閉じる
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  const sidebarContent = (
+    <aside className="w-60 flex flex-col bg-slate-900 h-full">
       {/* ロゴ */}
-      <div className="px-4 py-5 border-b border-slate-800">
+      <div className="px-4 py-5 border-b border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="bg-indigo-500 rounded-lg p-1.5">
             <BarChart3 className="h-5 w-5 text-white" />
           </div>
           <span className="text-white font-bold text-lg">Kaiseki</span>
         </div>
+        {/* モバイルの閉じるボタン */}
+        <button
+          className="md:hidden text-slate-400 hover:text-white p-1"
+          onClick={() => setMobileOpen(false)}
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
       {/* プロジェクト選択 */}
@@ -104,7 +126,6 @@ export function Sidebar({ projects, currentProjectId }: SidebarProps) {
           <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
         </div>
 
-        {/* プロジェクトリスト（簡易版） */}
         {projects.length > 1 && (
           <div className="mt-1 space-y-0.5">
             {projects
@@ -162,5 +183,29 @@ export function Sidebar({ projects, currentProjectId }: SidebarProps) {
         </p>
       </div>
     </aside>
+  );
+
+  return (
+    <>
+      {/* デスクトップ: 通常表示 */}
+      <div className="hidden md:flex shrink-0 min-h-screen">
+        {sidebarContent}
+      </div>
+
+      {/* モバイル: ドロワー */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          {/* バックドロップ */}
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setMobileOpen(false)}
+          />
+          {/* ドロワー本体 */}
+          <div className="relative z-10 min-h-screen">
+            {sidebarContent}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

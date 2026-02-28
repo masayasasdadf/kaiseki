@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { Header } from "@/components/dashboard/header";
 import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
+import { SearchConsoleSettings } from "@/components/dashboard/search-console-settings";
 import { type DateRange } from "@/lib/utils";
 import {
   Copy,
@@ -25,6 +26,8 @@ interface ProjectSettings {
   secretKey?: string;
   allowedDomains: string[];
   excludedIps: string[];
+  searchConsoleProperty?: string | null;
+  searchConsoleConnected?: boolean;
 }
 
 export default function SettingsPage() {
@@ -307,6 +310,13 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
+
+            {/* Search Console 連携 */}
+            <SearchConsoleSettings
+              projectId={projectId}
+              connected={!!project.searchConsoleConnected}
+              property={project.searchConsoleProperty ?? null}
+            />
           </>
         ) : null}
       </main>

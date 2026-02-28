@@ -22,6 +22,10 @@ model Project {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  // Google Search Console 連携
+  searchConsoleProperty     String?
+  searchConsoleRefreshToken String?
+
   sessions      Session[]
   events        Event[]
   conversions   Conversion[]

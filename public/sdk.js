@@ -461,6 +461,8 @@
           x: x,
           y: y,
           vw: window.innerWidth,
+          vh: window.innerHeight,
+          docH: docH,
           selector: selector,
         })
       );

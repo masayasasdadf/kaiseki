@@ -63,14 +63,21 @@ export async function GET(
     take: 5000,
   });
 
-  const clicks = events.flatMap((e) => {
-    const props = e.props as { x?: number; y?: number; vw?: number } | null;
-    if (!props || typeof props.x !== "number" || typeof props.y !== "number") return [];
-    const { x, y, vw } = props as { x: number; y: number; vw?: number };
-    if (device === "desktop" && vw !== undefined && vw < 1024) return [];
-    if (device === "mobile" && (vw === undefined || vw >= 768)) return [];
-    return [{ x, y }];
-  });
+  type ClickProps = { x?: number; y?: number; vw?: number; docH?: number };
+  const clicks: { x: number; y: number }[] = [];
+  let maxDocH = 0;
 
-  return Response.json({ clicks, total: clicks.length, paths, siteUrl });
+  for (const e of events) {
+    const props = e.props as ClickProps | null;
+    if (!props || typeof props.x !== "number" || typeof props.y !== "number") continue;
+    const { x, y, vw, docH: rawDocH } = props as { x: number; y: number; vw?: number; docH?: number };
+    if (device === "desktop" && vw !== undefined && vw < 1024) continue;
+    if (device === "mobile" && (vw === undefined || vw >= 768)) continue;
+    clicks.push({ x, y });
+    if (rawDocH && rawDocH > maxDocH) maxDocH = rawDocH;
+  }
+
+  const pageDocH = maxDocH > 0 ? maxDocH : null;
+
+  return Response.json({ clicks, total: clicks.length, paths, siteUrl, pageDocH });
 }

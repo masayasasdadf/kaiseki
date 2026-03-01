@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { Header } from "@/components/dashboard/header";
 import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
+import { AIPageInsights } from "@/components/dashboard/ai-page-insights";
 import { type DateRange } from "@/lib/utils";
 import { ArrowRight, Loader2, LogOut, GitFork, RefreshCw } from "lucide-react";
 
@@ -31,18 +32,32 @@ interface FlowData {
   topPaths: TopPath[];
   exitPages: ExitPage[];
   totalSessions: number;
+  pathTitles: Record<string, string>;
 }
 
 type Tab = "transitions" | "paths" | "exits";
 
-function PathChip({ path }: { path: string }) {
-  const label = path === "/" ? "TOP" : path.length > 22 ? path.slice(0, 22) + "…" : path;
+/** パスを表示用の文字列に変換。easyMode 時はタイトル優先 */
+function displayPath(path: string, titles: Record<string, string>, easyMode: boolean): string {
+  if (easyMode) {
+    if (titles[path]) return titles[path];
+    if (path === "/" || path === "") return "TOPページ";
+    const clean = path.split("?")[0].replace(/^\/+/, "").replace(/\/+$/, "");
+    const last = clean.split("/").pop() || "";
+    return last.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || path;
+  }
+  return path === "/" ? "/ (TOP)" : path;
+}
+
+function PathChip({ path, titles, easyMode }: { path: string; titles: Record<string, string>; easyMode: boolean }) {
+  const label = displayPath(path, titles, easyMode);
+  const truncated = label.length > 20 ? label.slice(0, 20) + "…" : label;
   return (
     <span
       title={path}
-      className="inline-block rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-mono text-indigo-700 shrink-0"
+      className="inline-block rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 shrink-0"
     >
-      {label}
+      {truncated}
     </span>
   );
 }
@@ -87,6 +102,31 @@ export default function FlowPage() {
 
   const maxTransitionCount = data?.transitions[0]?.count ?? 1;
   const maxExitCount = data?.exitPages[0]?.exits ?? 1;
+  const titles = data?.pathTitles ?? {};
+
+  // AI 用コンテキスト文字列
+  const aiContext = useMemo(() => {
+    if (!data) return "";
+    return [
+      `## ページ動線データ（${dateRange}）`,
+      `対象セッション: ${data.totalSessions.toLocaleString()}`,
+      "",
+      "### 上位ページ遷移",
+      ...data.transitions.slice(0, 8).map((t, i) =>
+        `${i + 1}. ${t.from} → ${t.to}: ${t.count}回`
+      ),
+      "",
+      "### よく辿られるパス",
+      ...data.topPaths.slice(0, 5).map((p, i) =>
+        `${i + 1}. ${p.steps.join(" → ")}: ${p.count}セッション（CV率${p.cvRate}%）`
+      ),
+      "",
+      "### 離脱ページ",
+      ...data.exitPages.slice(0, 5).map((ep, i) =>
+        `${i + 1}. ${ep.path}: ${ep.exits}離脱（離脱率${ep.exitRate}%）`
+      ),
+    ].join("\n");
+  }, [data, dateRange]);
 
   const tabs: { key: Tab; label: string; labelEasy: string }[] = [
     { key: "transitions", label: "ページ遷移", labelEasy: "次に見たページ" },
@@ -98,7 +138,6 @@ export default function FlowPage() {
     <>
       <Header dateRange={dateRange} onDateRangeChange={setDateRange} />
       <main className="flex-1 p-6 space-y-6">
-        {/* タイトル */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -122,9 +161,7 @@ export default function FlowPage() {
         </div>
 
         {error && (
-          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
+          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
         )}
 
         {loading && !data ? (
@@ -138,15 +175,11 @@ export default function FlowPage() {
             <div className="rounded-2xl border border-slate-200 bg-white px-6 py-4 flex items-center gap-8">
               <div>
                 <p className="text-xs text-slate-400">対象セッション</p>
-                <p className="text-2xl font-bold text-slate-900 tabular-nums">
-                  {data.totalSessions.toLocaleString()}
-                </p>
+                <p className="text-2xl font-bold text-slate-900 tabular-nums">{data.totalSessions.toLocaleString()}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-400">検出した遷移パターン</p>
-                <p className="text-2xl font-bold text-slate-900 tabular-nums">
-                  {data.transitions.length}
-                </p>
+                <p className="text-xs text-slate-400">遷移パターン数</p>
+                <p className="text-2xl font-bold text-slate-900 tabular-nums">{data.transitions.length}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-400">CVに繋がったパス</p>
@@ -175,7 +208,7 @@ export default function FlowPage() {
               </div>
 
               <div className="p-5">
-                {/* ======= ページ遷移タブ ======= */}
+                {/* ======= ページ遷移 ======= */}
                 {tab === "transitions" && (
                   <div className="space-y-1">
                     {data.transitions.length === 0 ? (
@@ -184,7 +217,7 @@ export default function FlowPage() {
                       </p>
                     ) : (
                       <>
-                        <div className="grid grid-cols-[1fr_auto_1fr_auto] gap-x-3 gap-y-0 pb-2 mb-1 border-b border-slate-100 text-xs font-medium text-slate-400">
+                        <div className="grid grid-cols-[1fr_auto_1fr_auto] gap-x-3 pb-2 mb-1 border-b border-slate-100 text-xs font-medium text-slate-400">
                           <span>移動元</span>
                           <span />
                           <span>移動先</span>
@@ -195,18 +228,12 @@ export default function FlowPage() {
                             key={i}
                             className="grid grid-cols-[1fr_auto_1fr_auto] gap-x-3 items-center py-2 rounded-lg hover:bg-slate-50 transition-colors px-1"
                           >
-                            <span
-                              title={t.from}
-                              className="text-xs font-mono text-slate-600 truncate"
-                            >
-                              {t.from === "/" ? "/ (TOP)" : t.from}
+                            <span title={t.from} className="text-xs text-slate-600 truncate">
+                              {displayPath(t.from, titles, easyMode)}
                             </span>
                             <ArrowRight className="h-3.5 w-3.5 text-slate-300 shrink-0" />
-                            <span
-                              title={t.to}
-                              className="text-xs font-mono text-slate-800 font-medium truncate"
-                            >
-                              {t.to === "/" ? "/ (TOP)" : t.to}
+                            <span title={t.to} className="text-xs text-slate-800 font-medium truncate">
+                              {displayPath(t.to, titles, easyMode)}
                             </span>
                             <BarCell value={t.count} max={maxTransitionCount} />
                           </div>
@@ -216,7 +243,7 @@ export default function FlowPage() {
                   </div>
                 )}
 
-                {/* ======= よく辿られるパスタブ ======= */}
+                {/* ======= よく辿られるパス ======= */}
                 {tab === "paths" && (
                   <div className="space-y-3">
                     {data.topPaths.length === 0 ? (
@@ -227,37 +254,25 @@ export default function FlowPage() {
                           key={i}
                           className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 hover:border-slate-200 transition-colors"
                         >
-                          {/* 順位 */}
-                          <span className="text-sm font-bold text-slate-300 w-5 shrink-0 tabular-nums">
-                            {i + 1}
-                          </span>
-
-                          {/* パスステップ */}
+                          <span className="text-sm font-bold text-slate-300 w-5 shrink-0 tabular-nums">{i + 1}</span>
                           <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
                             {path.steps.map((step, si) => (
                               <div key={si} className="flex items-center gap-1.5">
-                                <PathChip path={step} />
+                                <PathChip path={step} titles={titles} easyMode={easyMode} />
                                 {si < path.steps.length - 1 && (
                                   <ArrowRight className="h-3 w-3 text-slate-300 shrink-0" />
                                 )}
                               </div>
                             ))}
-                            {/* 4ページ以上ある場合 */}
                           </div>
-
-                          {/* CV バッジ */}
                           {path.conversionCount > 0 && (
                             <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
                               CV {path.cvRate}%
                             </span>
                           )}
-
-                          {/* セッション数 */}
                           <div className="shrink-0 text-right">
-                            <p className="text-sm font-semibold text-slate-700 tabular-nums">
-                              {path.count.toLocaleString()}
-                            </p>
-                            <p className="text-xs text-slate-400">セッション</p>
+                            <p className="text-sm font-semibold text-slate-700 tabular-nums">{path.count.toLocaleString()}</p>
+                            <p className="text-xs text-slate-400">{easyMode ? "人" : "セッション"}</p>
                           </div>
                         </div>
                       ))
@@ -265,7 +280,7 @@ export default function FlowPage() {
                   </div>
                 )}
 
-                {/* ======= 離脱ページタブ ======= */}
+                {/* ======= 離脱ページ ======= */}
                 {tab === "exits" && (
                   <div className="space-y-1">
                     {data.exitPages.length === 0 ? (
@@ -284,21 +299,14 @@ export default function FlowPage() {
                           >
                             <div className="flex items-center gap-2 min-w-0">
                               <LogOut className="h-3.5 w-3.5 text-slate-300 shrink-0" />
-                              <span
-                                title={ep.path}
-                                className="text-xs font-mono text-slate-600 truncate"
-                              >
-                                {ep.path === "/" ? "/ (TOP)" : ep.path}
+                              <span title={ep.path} className="text-xs text-slate-600 truncate">
+                                {displayPath(ep.path, titles, easyMode)}
                               </span>
                             </div>
                             <BarCell value={ep.exits} max={maxExitCount} />
                             <span
                               className={`text-sm font-semibold tabular-nums w-16 text-right ${
-                                ep.exitRate >= 70
-                                  ? "text-red-600"
-                                  : ep.exitRate >= 40
-                                  ? "text-amber-600"
-                                  : "text-emerald-600"
+                                ep.exitRate >= 70 ? "text-red-600" : ep.exitRate >= 40 ? "text-amber-600" : "text-emerald-600"
                               }`}
                             >
                               {ep.exitRate}%
@@ -314,6 +322,9 @@ export default function FlowPage() {
                 )}
               </div>
             </div>
+
+            {/* AI コメント */}
+            <AIPageInsights projectId={projectId} context={aiContext} label="ページ動線分析" />
           </>
         ) : null}
       </main>

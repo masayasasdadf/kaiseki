@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { Header } from "@/components/dashboard/header";
 import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
+import { AIPageInsights } from "@/components/dashboard/ai-page-insights";
 import { type DateRange, formatPercent } from "@/lib/utils";
 import {
   Loader2,
@@ -30,6 +31,7 @@ interface FunnelResult {
   totalEntered: number;
   totalCompleted: number;
   completionRate: number;
+  stepTitles: Record<string, string>;
 }
 
 const PRESETS = [
@@ -50,8 +52,24 @@ const PRESETS = [
   },
 ];
 
+function displayStep(path: string, titles: Record<string, string>, easyMode: boolean): string {
+  if (easyMode) {
+    if (titles[path]) return titles[path];
+    if (path === "/" || path === "") return "TOPページ";
+    const clean = path.split("?")[0].replace(/^\/+/, "").replace(/\/+$/, "");
+    const last = clean.split("/").pop() || "";
+    return last.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || path;
+  }
+  return path === "/" ? "/ (TOP)" : path;
+}
+
 // ステップの幅は percentage に比例（最小8%で視認性確保）
-function FunnelBar({ step, index, isLast }: { step: FunnelStep; index: number; isLast: boolean }) {
+function FunnelBar({
+  step, index, isLast, titles, easyMode,
+}: {
+  step: FunnelStep; index: number; isLast: boolean;
+  titles: Record<string, string>; easyMode: boolean;
+}) {
   const barWidth = Math.max(step.percentage, 8);
   const isWorstDropOff = step.dropOffRate >= 40;
 
@@ -82,8 +100,8 @@ function FunnelBar({ step, index, isLast }: { step: FunnelStep; index: number; i
         <div className="flex-1 space-y-1">
           {/* パス名 */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-slate-600 truncate max-w-[240px]" title={step.path}>
-              {step.path === "/" ? "/ (TOP)" : step.path}
+            <span className="text-xs font-medium text-slate-600 truncate max-w-[240px]" title={step.path}>
+              {displayStep(step.path, titles, easyMode)}
             </span>
             {isLast && (
               <span className="flex items-center gap-0.5 text-xs text-emerald-600">
@@ -163,6 +181,25 @@ export default function FunnelPage() {
         result.steps[1]
       )
     : null;
+
+  const aiContext = useMemo(() => {
+    if (!result) return "";
+    const lines = [
+      `ファネル分析（${dateRange}）`,
+      `入口: ${result.totalEntered}人, ゴール到達: ${result.totalCompleted}人, 完了率: ${result.completionRate}%`,
+      `ステップ数: ${result.steps.length}`,
+      "",
+      "各ステップ:",
+      ...result.steps.map((s, i) =>
+        `  Step${i + 1} ${s.path}: ${s.sessions}人 (${s.percentage}%)` +
+        (i > 0 ? ` 離脱${s.dropOff}人(${s.dropOffRate}%)` : "")
+      ),
+    ];
+    if (worstStep) {
+      lines.push(``, `最大離脱: ${worstStep.path} (${worstStep.dropOffRate}%)`);
+    }
+    return lines.join("\n");
+  }, [result, dateRange, worstStep]);
 
   return (
     <>
@@ -309,7 +346,9 @@ export default function FunnelPage() {
                     <TrendingDown className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
                     <p className="text-sm text-red-700">
                       <span className="font-semibold">最大離脱：</span>
-                      <span className="font-mono">{worstStep.path}</span> で
+                      <span className={easyMode ? "" : "font-mono"}>
+                        {displayStep(worstStep.path, result.stepTitles, easyMode)}
+                      </span> で
                       {worstStep.dropOff.toLocaleString()}人（{worstStep.dropOffRate}%）が離脱しています。
                       このページの改善が最優先です。
                     </p>
@@ -328,6 +367,8 @@ export default function FunnelPage() {
                         step={step}
                         index={i}
                         isLast={i === result.steps.length - 1}
+                        titles={result.stepTitles}
+                        easyMode={easyMode}
                       />
                     ))}
                   </div>
@@ -350,8 +391,9 @@ export default function FunnelPage() {
                       {result.steps.map((step, i) => (
                         <tr key={i} className="hover:bg-slate-50">
                           <td className="py-2 pl-0 pr-1">
-                            <span className="font-mono text-xs text-slate-600">
-                              {step.path === "/" ? "/ (TOP)" : step.path}
+                            <span className={`text-xs text-slate-600 ${easyMode ? "" : "font-mono"}`}
+                              title={step.path}>
+                              {displayStep(step.path, result.stepTitles, easyMode)}
                             </span>
                           </td>
                           <td className="py-2 px-1 tabular-nums text-slate-700">
@@ -379,6 +421,13 @@ export default function FunnelPage() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* AI解説 */}
+                <AIPageInsights
+                  projectId={projectId}
+                  context={aiContext}
+                  label="ファネル分析"
+                />
               </>
             )}
           </div>

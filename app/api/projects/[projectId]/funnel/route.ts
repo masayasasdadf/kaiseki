@@ -39,7 +39,7 @@ export async function POST(
   const [pageViews, conversions] = await Promise.all([
     db.pageView.findMany({
       where: { projectId, timestamp: { gte: from, lte: to } },
-      select: { sessionId: true, path: true, timestamp: true },
+      select: { sessionId: true, path: true, title: true, timestamp: true },
       orderBy: [{ sessionId: "asc" }, { timestamp: "asc" }],
     }),
     db.conversion.findMany({
@@ -49,6 +49,14 @@ export async function POST(
   ]);
 
   const convertedSessions = new Set(conversions.map((c) => c.sessionId));
+
+  // ステップパス→タイトルマップ
+  const stepTitles: Record<string, string> = {};
+  for (const pv of pageViews) {
+    if (pv.title && steps.some((s) => pv.path.startsWith(s)) && !stepTitles[pv.path]) {
+      stepTitles[pv.path] = pv.title;
+    }
+  }
 
   // セッションごとにページ配列を組み立てる
   const sessionPages = new Map<string, { path: string; ts: number }[]>();
@@ -106,5 +114,6 @@ export async function POST(
     totalEntered,
     totalCompleted,
     completionRate: totalEntered > 0 ? Math.round((totalCompleted / totalEntered) * 100) : 0,
+    stepTitles,
   });
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { Header } from "@/components/dashboard/header";
 import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
+import { AIPageInsights } from "@/components/dashboard/ai-page-insights";
 import { type DateRange, formatPercent } from "@/lib/utils";
 import { Loader2, RefreshCw, Layers, Smartphone, Globe } from "lucide-react";
 
@@ -227,6 +228,22 @@ export default function SegmentsPage() {
       (data.totalSessions || 1)
     : 0;
 
+  const aiContext = useMemo(() => {
+    if (!data) return "";
+    const fmtRow = (r: SegmentStats) =>
+      `  ${r.segment}: ${r.sessions}セッション, CVR ${r.cvr}%, 直帰${r.bounceRate}%, エンゲージ${r.engagementRate}%, 平均滞在${r.avgDuration}秒, スクロール${r.avgScroll}%`;
+    return [
+      `セグメント比較（${dateRange}）`,
+      `全体: ${data.totalSessions}セッション, ${data.totalConversions}CV, CVR ${data.overallCvr}%`,
+      "",
+      "デバイス別:",
+      ...data.byDevice.map(fmtRow),
+      "",
+      "チャネル別:",
+      ...data.byChannel.map(fmtRow),
+    ].join("\n");
+  }, [data, dateRange]);
+
   return (
     <>
       <Header dateRange={dateRange} onDateRangeChange={setDateRange} />
@@ -327,6 +344,13 @@ export default function SegmentsPage() {
                 easyMode={easyMode}
               />
             </div>
+
+            {/* AI解説 */}
+            <AIPageInsights
+              projectId={projectId}
+              context={aiContext}
+              label="セグメント比較"
+            />
 
             <p className="text-xs text-slate-400">
               ※ 緑色 = 全体平均より20%以上良い　赤色 = 全体平均より20%以上悪い

@@ -20,7 +20,7 @@ export async function GET(
   const [pageViews, conversions] = await Promise.all([
     db.pageView.findMany({
       where: { projectId, timestamp: { gte: from, lte: to } },
-      select: { sessionId: true, path: true, timestamp: true },
+      select: { sessionId: true, path: true, title: true, timestamp: true },
       orderBy: [{ sessionId: "asc" }, { timestamp: "asc" }],
     }),
     db.conversion.findMany({
@@ -30,6 +30,14 @@ export async function GET(
   ]);
 
   const convertedSessions = new Set(conversions.map((c) => c.sessionId));
+
+  // パス→タイトルマップ（最初に取得したタイトルを採用）
+  const pathTitles: Record<string, string> = {};
+  for (const pv of pageViews) {
+    if (pv.title && !pathTitles[pv.path]) {
+      pathTitles[pv.path] = pv.title;
+    }
+  }
 
   // セッションごとにページ配列を組み立てる
   const sessionPages = new Map<string, string[]>();
@@ -106,5 +114,5 @@ export async function GET(
 
   const totalSessions = sessionPages.size;
 
-  return Response.json({ transitions, topPaths, exitPages, totalSessions });
+  return Response.json({ transitions, topPaths, exitPages, totalSessions, pathTitles });
 }

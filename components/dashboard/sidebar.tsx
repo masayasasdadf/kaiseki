@@ -16,6 +16,7 @@ import {
   Flame,
   GitFork,
   Layers,
+  Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
@@ -66,6 +67,12 @@ const NAV_ITEMS = [
     labelEasy: "デバイス・経路比較",
     href: "segments",
     icon: Layers,
+  },
+  {
+    label: "ファネル分析",
+    labelEasy: "離脱ポイント分析",
+    href: "funnel",
+    icon: Filter,
   },
   {
     label: "コンバージョン",

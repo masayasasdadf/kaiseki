@@ -384,7 +384,7 @@ export async function POST(req: NextRequest) {
             props: clickProps,
             timestamp,
           },
-        });
+        }).catch(() => {}); // session未作成の競合状態を無視
         break;
       }
 

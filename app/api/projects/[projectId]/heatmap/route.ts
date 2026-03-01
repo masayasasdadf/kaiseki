@@ -63,19 +63,14 @@ export async function GET(
     take: 5000,
   });
 
-  const clicks = events
-    .map((e) => {
-      const props = e.props as { x?: number; y?: number; vw?: number } | null;
-      if (!props || typeof props.x !== "number" || typeof props.y !== "number") return null;
-      return { x: props.x, y: props.y, vw: props.vw };
-    })
-    .filter((c): c is { x: number; y: number; vw?: number } => c !== null)
-    .filter((c) => {
-      if (device === "desktop") return !c.vw || c.vw >= 1024;
-      if (device === "mobile") return c.vw !== undefined && c.vw < 768;
-      return true;
-    })
-    .map(({ x, y }) => ({ x, y }));
+  const clicks = events.flatMap((e) => {
+    const props = e.props as { x?: number; y?: number; vw?: number } | null;
+    if (!props || typeof props.x !== "number" || typeof props.y !== "number") return [];
+    const { x, y, vw } = props as { x: number; y: number; vw?: number };
+    if (device === "desktop" && vw !== undefined && vw < 1024) return [];
+    if (device === "mobile" && (vw === undefined || vw >= 768)) return [];
+    return [{ x, y }];
+  });
 
   return Response.json({ clicks, total: clicks.length, paths, siteUrl });
 }

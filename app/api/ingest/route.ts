@@ -67,6 +67,11 @@ const ingestSchema = z.object({
     "engagement_ping",
     "scroll_depth",
     "cta_click",
+    "cta_impression",
+    "cta_hover_no_click",
+    "content_toggle",
+    "tab_switch",
+    "scroll_pause",
     "click",
     "conversion",
     "custom",
@@ -418,6 +423,38 @@ export async function POST(req: NextRequest) {
             path: data.path,
             timestamp: timestamp.toISOString(),
           });
+        }
+        break;
+      }
+
+      // 意思決定シグナル（CTAインプレッション・躊躇・関心）
+      case "cta_impression":
+      case "cta_hover_no_click":
+      case "content_toggle":
+      case "tab_switch":
+      case "scroll_pause": {
+        const sigProps = sanitizePII(
+          (data.props as Record<string, unknown>) || {}
+        ) as Prisma.InputJsonValue;
+
+        await db.event.create({
+          data: {
+            projectId: project.id,
+            sessionId: data.sessionId,
+            visitorId: data.visitorId,
+            eventType: data.eventType,
+            path: data.path,
+            props: sigProps,
+            timestamp,
+          },
+        }).catch(() => {});
+
+        // content_toggle / tab_switch はエンゲージメントの証拠
+        if (data.eventType === "content_toggle" || data.eventType === "tab_switch") {
+          await db.session.update({
+            where: { sessionId: data.sessionId },
+            data: { engaged: true, bounced: false },
+          }).catch(() => {});
         }
         break;
       }

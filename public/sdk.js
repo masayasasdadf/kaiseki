@@ -468,6 +468,148 @@
     true
   );
 
+  // ========== 意思決定シグナル（躊躇・関心）==========
+
+  // CTA がビューポートに入った瞬間（インプレッション）
+  if (window.IntersectionObserver) {
+    var ctaImpressedSet = new Set();
+    var ctaObserver = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            var tracked = entry.target;
+            var trackName = tracked.getAttribute("data-track");
+            if (trackName && !ctaImpressedSet.has(tracked)) {
+              ctaImpressedSet.add(tracked);
+              send(
+                buildPayload("cta_impression", {
+                  trackName: trackName,
+                  selector: (
+                    tracked.tagName.toLowerCase() +
+                    (tracked.id ? "#" + tracked.id : "")
+                  ).slice(0, 80),
+                })
+              );
+            }
+          }
+        });
+      },
+      { threshold: 0.5 }
+    );
+    document.querySelectorAll("[data-track]").forEach(function (el) {
+      ctaObserver.observe(el);
+    });
+  }
+
+  // CTA に 3秒以上ホバーしてもクリックしなかった（躊躇シグナル）
+  document.addEventListener(
+    "mouseover",
+    function (e) {
+      var el = e.target;
+      while (el && el !== document) {
+        if (el.getAttribute && el.getAttribute("data-track")) {
+          if (el._kHoverTimer) break; // 既にタイマー起動済み
+          var tn = el.getAttribute("data-track");
+          var hoverEl = el;
+          hoverEl._kHoverTimer = setTimeout(function () {
+            hoverEl._kHoverTimer = null;
+            send(buildPayload("cta_hover_no_click", { trackName: tn }));
+          }, 3000);
+          hoverEl.addEventListener(
+            "mouseout",
+            function () {
+              clearTimeout(hoverEl._kHoverTimer);
+              hoverEl._kHoverTimer = null;
+            },
+            { once: true }
+          );
+          hoverEl.addEventListener(
+            "click",
+            function () {
+              clearTimeout(hoverEl._kHoverTimer);
+              hoverEl._kHoverTimer = null;
+            },
+            { once: true }
+          );
+          break;
+        }
+        el = el.parentElement;
+      }
+    },
+    true
+  );
+
+  // FAQ / アコーディオン / タブ切り替え（関心シグナル）
+  document.addEventListener(
+    "click",
+    function (e) {
+      var el = e.target;
+      while (el && el !== document) {
+        // <details><summary> パターン
+        if (el.tagName === "SUMMARY") {
+          send(
+            buildPayload("content_toggle", {
+              action: el.parentElement && el.parentElement.open ? "close" : "open",
+              selector: (el.textContent || "").trim().slice(0, 60),
+            })
+          );
+          break;
+        }
+        // aria-expanded パターン（Headless UI 等）
+        var expanded = el.getAttribute && el.getAttribute("aria-expanded");
+        if (expanded !== null) {
+          send(
+            buildPayload("content_toggle", {
+              action: expanded === "true" ? "close" : "open",
+              selector: (
+                el.getAttribute("aria-label") ||
+                (el.textContent || "")
+              )
+                .trim()
+                .slice(0, 60),
+            })
+          );
+          break;
+        }
+        // role="tab" パターン
+        if (el.getAttribute && el.getAttribute("role") === "tab") {
+          send(
+            buildPayload("tab_switch", {
+              tabLabel: (el.textContent || "").trim().slice(0, 50),
+            })
+          );
+          break;
+        }
+        el = el.parentElement;
+      }
+    },
+    true
+  );
+
+  // スクロール停止位置の滞在（3秒以上止まった場所を記録）
+  var _kScrollPauseTimer = null;
+  var _kScrollPauseY = 0;
+  window.addEventListener(
+    "scroll",
+    function () {
+      clearTimeout(_kScrollPauseTimer);
+      _kScrollPauseY = window.scrollY;
+      _kScrollPauseTimer = setTimeout(function () {
+        var docH = Math.max(
+          document.body.scrollHeight,
+          document.documentElement.scrollHeight
+        );
+        var scrollable = docH - window.innerHeight;
+        var pct =
+          scrollable > 0
+            ? Math.min(Math.round((_kScrollPauseY / scrollable) * 100), 100)
+            : 0;
+        send(buildPayload("scroll_pause", { scrollPercent: pct }));
+      }, 3000);
+    },
+    { passive: true }
+  );
+
   // ========== 離脱時処理 ==========
 
   window.addEventListener("beforeunload", function () {

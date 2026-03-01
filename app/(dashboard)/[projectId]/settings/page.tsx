@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/dashboard/header";
 import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
 import { SearchConsoleSettings } from "@/components/dashboard/search-console-settings";
@@ -17,6 +17,8 @@ import {
   Key,
   Shield,
   Globe,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 
 interface ProjectSettings {
@@ -32,6 +34,7 @@ interface ProjectSettings {
 
 export default function SettingsPage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const router = useRouter();
   const { easyMode } = useEasyMode();
 
   const [dateRange, setDateRange] = useState<DateRange>("30d");
@@ -45,6 +48,9 @@ export default function SettingsPage() {
   const [ipsInput, setIpsInput] = useState("");
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteZone, setShowDeleteZone] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -317,6 +323,72 @@ export default function SettingsPage() {
               connected={!!project.searchConsoleConnected}
               property={project.searchConsoleProperty ?? null}
             />
+
+            {/* 危険ゾーン */}
+            <div className="rounded-2xl border border-red-200 bg-white p-5">
+              <button
+                onClick={() => setShowDeleteZone((v) => !v)}
+                className="flex items-center gap-2 w-full text-left"
+              >
+                <Trash2 className="h-5 w-5 text-red-500" />
+                <h2 className="text-base font-semibold text-red-700 flex-1">
+                  {easyMode ? "プロジェクトを削除する" : "Danger Zone"}
+                </h2>
+                <span className="text-xs text-red-400">
+                  {showDeleteZone ? "閉じる" : "開く"}
+                </span>
+              </button>
+
+              {showDeleteZone && (
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3">
+                    <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-700">
+                      削除すると、このプロジェクトのすべてのデータ（セッション・イベント・CV・設定）が
+                      <strong>完全に消えて元に戻せません。</strong>
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      確認のため、プロジェクト名「<strong>{project.name}</strong>」を入力してください
+                    </label>
+                    <input
+                      type="text"
+                      value={deleteConfirmName}
+                      onChange={(e) => setDeleteConfirmName(e.target.value)}
+                      placeholder={project.name}
+                      className="w-full rounded-lg border border-red-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      disabled={deleteConfirmName !== project.name || deleting}
+                      onClick={async () => {
+                        setDeleting(true);
+                        try {
+                          const res = await fetch(`/api/projects/${projectId}/settings`, {
+                            method: "DELETE",
+                          });
+                          if (res.ok) {
+                            router.push("/");
+                          }
+                        } finally {
+                          setDeleting(false);
+                        }
+                      }}
+                      className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {deleting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                      {easyMode ? "完全に削除する" : "Delete Project"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </>
         ) : null}
       </main>

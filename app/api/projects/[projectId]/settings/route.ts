@@ -75,3 +75,20 @@ export async function PATCH(
 
   return Response.json({ project });
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ projectId: string }> }
+) {
+  const { projectId } = await params;
+
+  const project = await db.project.findUnique({
+    where: { id: projectId },
+    select: { id: true },
+  });
+  if (!project) return Response.json({ error: "Not found" }, { status: 404 });
+
+  await db.project.delete({ where: { id: projectId } });
+
+  return Response.json({ ok: true });
+}

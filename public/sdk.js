@@ -427,6 +427,47 @@
     true
   );
 
+  // ========== ヒートマップ用クリック追跡 ==========
+
+  document.addEventListener(
+    "click",
+    function (e) {
+      var docH = Math.max(
+        document.body.scrollHeight,
+        document.documentElement.scrollHeight,
+        document.body.offsetHeight,
+        document.documentElement.offsetHeight
+      );
+      var x =
+        window.innerWidth > 0
+          ? Math.round((e.clientX / window.innerWidth) * 10000) / 100
+          : 0;
+      var y =
+        docH > 0
+          ? Math.round(((e.clientY + window.scrollY) / docH) * 10000) / 100
+          : 0;
+
+      var el = e.target || document.body;
+      var tag = el.tagName ? el.tagName.toLowerCase() : "";
+      var id = el.id ? "#" + el.id : "";
+      var cls =
+        el.className && typeof el.className === "string"
+          ? "." + el.className.trim().split(/\s+/).slice(0, 2).join(".")
+          : "";
+      var selector = (tag + id + cls).slice(0, 80);
+
+      send(
+        buildPayload("click", {
+          x: x,
+          y: y,
+          vw: window.innerWidth,
+          selector: selector,
+        })
+      );
+    },
+    true
+  );
+
   // ========== 離脱時処理 ==========
 
   window.addEventListener("beforeunload", function () {

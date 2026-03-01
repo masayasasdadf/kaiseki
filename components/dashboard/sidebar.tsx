@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Plus,
   X,
+  Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
@@ -45,6 +46,12 @@ const NAV_ITEMS = [
     labelEasy: "どのページが読まれたか",
     href: "behavior",
     icon: TrendingUp,
+  },
+  {
+    label: "ヒートマップ",
+    labelEasy: "クリック分布",
+    href: "heatmap",
+    icon: Flame,
   },
   {
     label: "コンバージョン",

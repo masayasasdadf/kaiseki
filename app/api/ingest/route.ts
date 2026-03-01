@@ -67,6 +67,7 @@ const ingestSchema = z.object({
     "engagement_ping",
     "scroll_depth",
     "cta_click",
+    "click",
     "conversion",
     "custom",
   ]),
@@ -364,6 +365,25 @@ export async function POST(req: NextRequest) {
           path: data.path,
           props: sanitizedProps,
           timestamp: timestamp.toISOString(),
+        });
+        break;
+      }
+
+      case "click": {
+        const clickProps = sanitizePII(
+          (data.props as Record<string, unknown>) || {}
+        ) as Prisma.InputJsonValue;
+
+        await db.event.create({
+          data: {
+            projectId: project.id,
+            sessionId: data.sessionId,
+            visitorId: data.visitorId,
+            eventType: "click",
+            path: data.path,
+            props: clickProps,
+            timestamp,
+          },
         });
         break;
       }

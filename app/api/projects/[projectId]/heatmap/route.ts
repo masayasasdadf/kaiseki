@@ -18,6 +18,15 @@ export async function GET(
   const path = req.nextUrl.searchParams.get("path") || null;
   const { from, to } = getDateRange(range);
 
+  // サイトのベースURL（allowedDomains の先頭から取得）
+  const project = await db.project.findUnique({
+    where: { id: projectId },
+    select: { allowedDomains: true },
+  });
+  const siteUrl = project?.allowedDomains[0]
+    ? `https://${project.allowedDomains[0]}`
+    : null;
+
   // クリックデータのあるパス一覧
   const pathGroups = await db.event.groupBy({
     by: ["path"],
@@ -39,7 +48,7 @@ export async function GET(
   const targetPath = path ?? paths[0]?.path ?? null;
 
   if (!targetPath) {
-    return Response.json({ clicks: [], total: 0, paths });
+    return Response.json({ clicks: [], total: 0, paths, siteUrl });
   }
 
   const events = await db.event.findMany({
@@ -61,5 +70,5 @@ export async function GET(
     })
     .filter((c): c is { x: number; y: number } => c !== null);
 
-  return Response.json({ clicks, total: clicks.length, paths });
+  return Response.json({ clicks, total: clicks.length, paths, siteUrl });
 }

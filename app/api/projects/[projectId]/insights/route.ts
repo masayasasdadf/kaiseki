@@ -289,6 +289,12 @@ STEP4: 優先度付き改善案（3〜5個、priority: high→medium→lowの順
       "title": "タイトル（20文字以内）",
       "body": "具体的な数値を含む分析（100〜150文字）"
     }
+  ],
+  "next_actions": [
+    {
+      "page": "flow|segments|funnel|acquisition|behavior|heatmap",
+      "reason": "このページを確認すべき理由（40文字以内）"
+    }
   ]
 }
 
@@ -297,6 +303,7 @@ STEP4: 優先度付き改善案（3〜5個、priority: high→medium→lowの順
 - improvements は priority: high → medium → low の順で並べる
 - データが少ない（100セッション未満）場合はその旨を各フィールドに反映
 - 「惜敗セッション」が多い場合は必ずその原因仮説を含めること
+- next_actions は1〜2個。直帰率が高ければ"flow"、デバイス間CVR差が疑われれば"segments"、惜敗率が高くCVR改善余地があれば"funnel"を優先
 ${searchRows.length > 0 ? "- 検索キーワードの意図分類と流入意図とLPの対応ギャップを必ず分析すること" : ""}`,
       },
     ],
@@ -317,6 +324,7 @@ ${searchRows.length > 0 ? "- 検索キーワードの意図分類と流入意図
       priority: string;
     }>;
     insights?: Array<{ type: string; title: string; body: string }>;
+    next_actions?: Array<{ page: string; reason: string }>;
   };
 
   try {
@@ -332,6 +340,7 @@ ${searchRows.length > 0 ? "- 検索キーワードの意図分類と流入意図
       : [],
     improvements: Array.isArray(parsed.improvements) ? parsed.improvements : [],
     insights: Array.isArray(parsed.insights) ? parsed.insights : [],
+    next_actions: Array.isArray(parsed.next_actions) ? parsed.next_actions : [],
     sessionQuality,
     hesitationSignals: { ctaImpressions, ctaHesitations, hesitationRate, contentToggles, tabSwitches },
     generatedAt: new Date().toISOString(),

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ElementType } from "react";
+import Link from "next/link";
 import {
   Sparkles,
   TrendingUp,
@@ -11,6 +12,13 @@ import {
   ChevronRight,
   Users,
   MousePointerClick,
+  GitFork,
+  Layers,
+  Filter,
+  Globe,
+  BarChart2,
+  Flame,
+  ArrowRight,
 } from "lucide-react";
 
 interface Insight {
@@ -36,11 +44,17 @@ interface Improvement {
   priority: "high" | "medium" | "low";
 }
 
+interface NextAction {
+  page: string;
+  reason: string;
+}
+
 interface AnalysisResult {
   problem_summary: string | null;
   root_cause_hypotheses: Hypothesis[];
   improvements: Improvement[];
   insights: Insight[];
+  next_actions: NextAction[];
   sessionQuality: { success: number; near_miss: number; failure: number };
   hesitationSignals: {
     ctaImpressions: number;
@@ -65,6 +79,15 @@ interface AIInsightsProps {
   range: string;
   searchRows?: SearchRow[];
 }
+
+const pageConfig: Record<string, { label: string; icon: ElementType; color: string; bg: string }> = {
+  flow:        { label: "動線分析",       icon: GitFork,   color: "text-indigo-600",  bg: "bg-indigo-50 border-indigo-200 hover:bg-indigo-100" },
+  segments:    { label: "セグメント比較", icon: Layers,    color: "text-violet-600",  bg: "bg-violet-50 border-violet-200 hover:bg-violet-100" },
+  funnel:      { label: "ファネル分析",   icon: Filter,    color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200 hover:bg-emerald-100" },
+  acquisition: { label: "流入分析",       icon: Globe,     color: "text-sky-600",     bg: "bg-sky-50 border-sky-200 hover:bg-sky-100" },
+  behavior:    { label: "コンテンツ分析", icon: BarChart2, color: "text-amber-600",   bg: "bg-amber-50 border-amber-200 hover:bg-amber-100" },
+  heatmap:     { label: "ヒートマップ",   icon: Flame,     color: "text-orange-600",  bg: "bg-orange-50 border-orange-200 hover:bg-orange-100" },
+};
 
 const costConfig = {
   low:    { label: "低コスト",   className: "bg-emerald-100 text-emerald-700" },
@@ -333,6 +356,32 @@ export function AIInsights({ projectId, range, searchRows }: AIInsightsProps) {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* 次に確認すべきページ */}
+          {result.next_actions && result.next_actions.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                次に確認すること
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {result.next_actions.map((action, i) => {
+                  const cfg = pageConfig[action.page] ?? pageConfig.flow;
+                  const Icon = cfg.icon;
+                  return (
+                    <Link key={i} href={`/${projectId}/${action.page}`}>
+                      <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium cursor-pointer transition-colors ${cfg.color} ${cfg.bg}`}>
+                        <Icon className="h-3.5 w-3.5 shrink-0" />
+                        <span>{cfg.label}</span>
+                        <span className="text-slate-500 font-normal">—</span>
+                        <span className="font-normal text-slate-600">{action.reason}</span>
+                        <ArrowRight className="h-3 w-3 ml-1 shrink-0" />
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
           )}
 

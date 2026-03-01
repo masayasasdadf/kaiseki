@@ -9,12 +9,21 @@ interface Insight {
   body: string;
 }
 
+interface SearchRow {
+  keys: string[];
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
 interface AIInsightsProps {
   projectId: string;
   range: string;
+  searchRows?: SearchRow[];
 }
 
-export function AIInsights({ projectId, range }: AIInsightsProps) {
+export function AIInsights({ projectId, range, searchRows }: AIInsightsProps) {
   const [insights, setInsights] = useState<Insight[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +36,7 @@ export function AIInsights({ projectId, range }: AIInsightsProps) {
       const res = await fetch(`/api/projects/${projectId}/insights`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ range }),
+        body: JSON.stringify({ range, searchRows: searchRows ?? [] }),
       });
       if (!res.ok) {
         const data = await res.json();

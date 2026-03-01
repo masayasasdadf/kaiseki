@@ -27,6 +27,8 @@ export async function POST(
 
   const body = await req.json().catch(() => ({}));
   const range = (body.range || "30d") as DateRange;
+  const searchRows: Array<{ keys: string[]; clicks: number; impressions: number; ctr: number; position: number }> =
+    Array.isArray(body.searchRows) ? body.searchRows : [];
   const { from, to } = getDateRange(range);
 
   const periodLength = to.getTime() - from.getTime();
@@ -155,6 +157,8 @@ ${topLandingPages.map((p) => `- ${p.path}: ${p.sessions}セッション、直帰
 ${deviceBreakdown.map((d) => `- ${d.device}: ${d.share}%`).join("\n")}
 
 ${topConversions.length > 0 ? `### CV内訳\n${topConversions.map((c) => `- ${c.name}: ${c.count}件`).join("\n")}` : ""}
+
+${searchRows.length > 0 ? `### 検索キーワード（Google Search Console）\n${searchRows.slice(0, 10).map((r) => `- "${r.keys[0]}": クリック${r.clicks}、表示${r.impressions}、CTR${(r.ctr * 100).toFixed(1)}%、平均順位${r.position.toFixed(1)}位`).join("\n")}` : ""}
 `.trim();
 
   const completion = await client.chat.completions.create({
@@ -189,7 +193,8 @@ ${dataContext}
 - インサイトは3〜5個
 - typeは positive（良い点）、warning（改善点）、neutral（観察事項）のいずれか
 - データが少ない場合（セッション数が100未満など）はその旨も含めてください
-- 具体的な数値を引用して根拠を示してください`,
+- 具体的な数値を引用して根拠を示してください
+${searchRows.length > 0 ? "- 検索キーワードデータがある場合は、上位キーワードのCTRや順位に基づいたSEO改善提案も含めてください" : ""}`,
       },
     ],
   });

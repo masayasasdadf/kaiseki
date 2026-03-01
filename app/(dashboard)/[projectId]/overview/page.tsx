@@ -9,8 +9,16 @@ import { Header } from "@/components/dashboard/header";
 import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
 import { getEmptyState } from "@/lib/terminology";
 import { formatPercent, calcChangeRate, type DateRange } from "@/lib/utils";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, Search } from "lucide-react";
 import { AIInsights } from "@/components/dashboard/ai-insights";
+
+interface SearchRow {
+  keys: string[];
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
 
 interface MetricsData {
   kpi: {
@@ -50,6 +58,7 @@ export default function OverviewPage() {
 
   const [dateRange, setDateRange] = useState<DateRange>("30d");
   const [data, setData] = useState<MetricsData | null>(null);
+  const [searchRows, setSearchRows] = useState<SearchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -57,12 +66,17 @@ export default function OverviewPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(
-        `/api/projects/${projectId}/metrics?range=${dateRange}`
-      );
-      if (!res.ok) throw new Error("Failed to fetch");
-      const json = await res.json();
+      const [metricsRes, scRes] = await Promise.all([
+        fetch(`/api/projects/${projectId}/metrics?range=${dateRange}`),
+        fetch(`/api/projects/${projectId}/search-console?range=${dateRange}`),
+      ]);
+      if (!metricsRes.ok) throw new Error("Failed to fetch");
+      const json = await metricsRes.json();
       setData(json);
+      if (scRes.ok) {
+        const scJson = await scRes.json();
+        setSearchRows(Array.isArray(scJson.rows) ? scJson.rows : []);
+      }
     } catch {
       setError("データの取得に失敗しました");
     } finally {
@@ -204,8 +218,63 @@ export default function OverviewPage() {
               />
             </div>
 
+            {/* 検索キーワード */}
+            {searchRows.length > 0 && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Search className="h-4 w-4 text-slate-400" />
+                  <h2 className="text-base font-semibold text-slate-800">
+                    {easyMode ? "どんなキーワードで来たか" : "検索キーワード（Search Console）"}
+                  </h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200">
+                        {[
+                          "キーワード",
+                          easyMode ? "クリック数" : "クリック",
+                          easyMode ? "表示回数" : "表示",
+                          "CTR",
+                          easyMode ? "順位" : "平均順位",
+                        ].map((h) => (
+                          <th
+                            key={h}
+                            className="pb-3 text-left font-medium text-slate-500 first:pl-0 last:pr-0 px-3"
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {searchRows.slice(0, 10).map((row) => (
+                        <tr key={row.keys[0]} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-3 pl-0 pr-3 text-slate-700 max-w-[220px] truncate">
+                            {row.keys[0]}
+                          </td>
+                          <td className="py-3 px-3 tabular-nums text-slate-700">
+                            {row.clicks.toLocaleString()}
+                          </td>
+                          <td className="py-3 px-3 tabular-nums text-slate-500">
+                            {row.impressions.toLocaleString()}
+                          </td>
+                          <td className="py-3 px-3 tabular-nums text-slate-700">
+                            {(row.ctr * 100).toFixed(1)}%
+                          </td>
+                          <td className="py-3 pl-3 pr-0 tabular-nums text-slate-700">
+                            {row.position.toFixed(1)}位
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* AI分析 */}
-            <AIInsights projectId={projectId} range={dateRange} />
+            <AIInsights projectId={projectId} range={dateRange} searchRows={searchRows} />
 
             {/* LP別テーブル */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5">

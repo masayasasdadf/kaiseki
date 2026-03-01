@@ -15,6 +15,7 @@ import {
   X,
   Flame,
   GitFork,
+  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
@@ -59,6 +60,12 @@ const NAV_ITEMS = [
     labelEasy: "どこを経由したか",
     href: "flow",
     icon: GitFork,
+  },
+  {
+    label: "セグメント比較",
+    labelEasy: "デバイス・経路比較",
+    href: "segments",
+    icon: Layers,
   },
   {
     label: "コンバージョン",

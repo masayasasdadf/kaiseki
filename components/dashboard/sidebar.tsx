@@ -14,6 +14,7 @@ import {
   Plus,
   X,
   Flame,
+  GitFork,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
@@ -52,6 +53,12 @@ const NAV_ITEMS = [
     labelEasy: "クリック分布",
     href: "heatmap",
     icon: Flame,
+  },
+  {
+    label: "動線分析",
+    labelEasy: "どこを経由したか",
+    href: "flow",
+    icon: GitFork,
   },
   {
     label: "コンバージョン",

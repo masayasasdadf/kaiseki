@@ -16,6 +16,7 @@ export async function GET(
   const { projectId } = await params;
   const range = (req.nextUrl.searchParams.get("range") || "30d") as DateRange;
   const path = req.nextUrl.searchParams.get("path") || null;
+  const device = req.nextUrl.searchParams.get("device") || "all"; // "all" | "desktop" | "mobile"
   const { from, to } = getDateRange(range);
 
   // サイトのベースURL（allowedDomains の先頭から取得）
@@ -64,11 +65,17 @@ export async function GET(
 
   const clicks = events
     .map((e) => {
-      const props = e.props as { x?: number; y?: number } | null;
+      const props = e.props as { x?: number; y?: number; vw?: number } | null;
       if (!props || typeof props.x !== "number" || typeof props.y !== "number") return null;
-      return { x: props.x, y: props.y };
+      return { x: props.x, y: props.y, vw: props.vw };
     })
-    .filter((c): c is { x: number; y: number } => c !== null);
+    .filter((c): c is { x: number; y: number; vw?: number } => c !== null)
+    .filter((c) => {
+      if (device === "desktop") return !c.vw || c.vw >= 1024;
+      if (device === "mobile") return c.vw !== undefined && c.vw < 768;
+      return true;
+    })
+    .map(({ x, y }) => ({ x, y }));
 
   return Response.json({ clicks, total: clicks.length, paths, siteUrl });
 }

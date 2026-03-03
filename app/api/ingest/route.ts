@@ -548,12 +548,20 @@ async function checkUrlConversionRules(
 
     if (!pattern) continue;
 
+    // フルURL（https://example.com/thanks）が入力された場合はパス部分だけを使う
+    let matchPattern = pattern;
+    try {
+      if (pattern.startsWith("http://") || pattern.startsWith("https://")) {
+        matchPattern = new URL(pattern).pathname;
+      }
+    } catch { /* invalid URL - use as-is */ }
+
     let matched = false;
-    if (matchType === "equals") matched = path === pattern;
-    else if (matchType === "contains") matched = path.includes(pattern);
-    else if (matchType === "starts_with") matched = path.startsWith(pattern);
+    if (matchType === "equals") matched = path === matchPattern;
+    else if (matchType === "contains") matched = path.includes(matchPattern);
+    else if (matchType === "starts_with") matched = path.startsWith(matchPattern);
     else if (matchType === "regex") {
-      try { matched = new RegExp(pattern).test(path); } catch { continue; }
+      try { matched = new RegExp(matchPattern).test(path); } catch { continue; }
     }
 
     if (matched) {

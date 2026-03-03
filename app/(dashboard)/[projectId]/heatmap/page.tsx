@@ -201,11 +201,19 @@ export default function HeatmapPage() {
   function handleIframeLoad() {
     try {
       const doc = iframeRef.current?.contentDocument;
-      if (doc && doc.body && doc.body.innerHTML.trim() === "") setIframeBlocked(true);
-    } catch { /* cross-origin = 正常 */ }
+      // プロキシ経由なのでsame-originになる。bodyが空 or エラーページなら blocked 扱い
+      if (!doc || !doc.body || doc.body.innerHTML.trim() === "") {
+        setIframeBlocked(true);
+      }
+    } catch {
+      // クロスオリジン例外はそのまま許容（proxy失敗時など）
+      setIframeBlocked(true);
+    }
   }
 
-  const iframeUrl = data?.siteUrl && selectedPath ? `${data.siteUrl}${selectedPath}` : null;
+  const iframeUrl = data?.siteUrl && selectedPath
+    ? `/api/projects/${projectId}/preview?url=${encodeURIComponent(`${data.siteUrl}${selectedPath}`)}`
+    : null;
 
   // pageDocH が不明な場合に表示するバナー
   const noDocH = hasData && !pageDocH;

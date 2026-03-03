@@ -7,7 +7,7 @@ import { ChannelTable } from "@/components/dashboard/channel-table";
 import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
 import { type DateRange, formatPercent } from "@/lib/utils";
 import { Loader2, Search } from "lucide-react";
-import { CHANNEL_COLORS } from "@/lib/attribution";
+import { CHANNEL_COLORS, channelLabel } from "@/lib/attribution";
 import {
   BarChart,
   Bar,
@@ -180,7 +180,7 @@ export default function AcquisitionPage() {
                         style={{ backgroundColor: color }}
                       />
                       <span className="text-sm text-slate-700 w-32 shrink-0 truncate">
-                        {ch.name}
+                        {channelLabel(ch.name, easyMode)}
                       </span>
                       <div className="flex-1 bg-slate-100 rounded-full h-2">
                         <div

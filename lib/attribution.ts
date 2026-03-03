@@ -231,6 +231,31 @@ export const CHANNEL_COLORS: Record<ChannelGroup, string> = {
 };
 
 /**
+ * チャネルグループの日本語表示ラベル
+ * easyMode=true のときは一般ユーザー向けの分かりやすい表現を使う
+ */
+export const CHANNEL_LABELS: Record<ChannelGroup, { normal: string; easy: string }> = {
+  "Paid Search":   { normal: "Paid Search",   easy: "広告（検索）" },
+  "Paid Display":  { normal: "Paid Display",  easy: "広告（ディスプレイ）" },
+  "Paid Video":    { normal: "Paid Video",    easy: "広告（動画）" },
+  "Paid Social":   { normal: "Paid Social",   easy: "広告（SNS）" },
+  "Organic Search":{ normal: "Organic Search",easy: "自然検索" },
+  "Organic Social":{ normal: "Organic Social",easy: "SNS投稿" },
+  "Referral":      { normal: "Referral",      easy: "他サイトから" },
+  "Email":         { normal: "Email",         easy: "メール" },
+  "Affiliate":     { normal: "Affiliate",     easy: "アフィリエイト" },
+  "Direct":        { normal: "Direct",        easy: "直接訪問" },
+  "Other":         { normal: "Other",         easy: "その他" },
+};
+
+/** チャネル名を表示用ラベルに変換する */
+export function channelLabel(name: string, easyMode: boolean): string {
+  const entry = CHANNEL_LABELS[name as ChannelGroup];
+  if (!entry) return name;
+  return easyMode ? entry.easy : entry.normal;
+}
+
+/**
  * 全チャネルグループ一覧（表示順）
  */
 export const ALL_CHANNELS: ChannelGroup[] = [

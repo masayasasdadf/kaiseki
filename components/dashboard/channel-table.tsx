@@ -1,7 +1,7 @@
 "use client";
 
 import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
-import { CHANNEL_COLORS } from "@/lib/attribution";
+import { CHANNEL_COLORS, channelLabel } from "@/lib/attribution";
 import { formatNumber, formatPercent } from "@/lib/utils";
 import { getEmptyState } from "@/lib/terminology";
 
@@ -65,7 +65,7 @@ export function ChannelTable({ data, totalSessions }: ChannelTableProps) {
                       style={{ backgroundColor: color }}
                     />
                     <span className="font-medium text-slate-800">
-                      {row.name}
+                      {channelLabel(row.name, easyMode)}
                     </span>
                   </div>
                 </td>

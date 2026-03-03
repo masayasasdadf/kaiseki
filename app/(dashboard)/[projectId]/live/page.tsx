@@ -13,6 +13,7 @@ import {
   Circle,
 } from "lucide-react";
 import { type DateRange } from "@/lib/utils";
+import { channelLabel } from "@/lib/attribution";
 
 interface LiveEvent {
   uid: string;
@@ -97,14 +98,14 @@ export default function LivePage() {
 
   const getEventLabel = (event: LiveEvent): string => {
     if (easyMode) {
-      if (event.type === "session_start") return `新しい訪問者が来ました ${event.channelGroup ? `（${event.channelGroup}から）` : ""}`;
+      if (event.type === "session_start") return `新しい訪問者が来ました ${event.channelGroup ? `（${channelLabel(event.channelGroup, true)}から）` : ""}`;
       if (event.type === "page_view") return `ページを見ています: ${event.path || "/"}`;
       if (event.type === "cta_click") return `ボタンが押されました`;
       if (event.type === "conversion") return `🎉 成果が発生！「${event.conversionName || ""}」`;
       if (event.type === "custom") return `カスタムイベント: ${event.eventName || ""}`;
       return event.type;
     } else {
-      if (event.type === "session_start") return `New session ${event.channelGroup ? `via ${event.channelGroup}` : ""}`;
+      if (event.type === "session_start") return `New session ${event.channelGroup ? `via ${channelLabel(event.channelGroup, false)}` : ""}`;
       if (event.type === "page_view") return `Page view: ${event.path || "/"}`;
       if (event.type === "cta_click") return `CTA click`;
       if (event.type === "conversion") return `Conversion: ${event.conversionName || ""}`;

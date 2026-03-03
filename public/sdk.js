@@ -227,6 +227,7 @@
       gclid: params.get("gclid"),
       wbraid: params.get("wbraid"),
       gbraid: params.get("gbraid"),
+      msclkid: params.get("msclkid"),
       fbclid: params.get("fbclid"),
     };
   }
@@ -653,4 +654,55 @@
       attribution: getSessionAttribution(),
     };
   };
+
+  // ========== click/form_submit CVルールの自動計測 ==========
+
+  var rulesEndpoint = ENDPOINT.replace(/\/api\/ingest$/, "/api/ingest/rules");
+
+  function setupCvRules() {
+    fetch(rulesEndpoint + "?k=" + encodeURIComponent(PROJECT_KEY))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var rules = data.rules || [];
+        rules.forEach(function (rule) {
+          var config = rule.config || {};
+          var selector = config.selector;
+          if (!selector || typeof selector !== "string") return;
+
+          if (rule.type === "click") {
+            document.addEventListener(
+              "click",
+              function (e) {
+                var el = e.target;
+                while (el && el !== document) {
+                  try {
+                    if (el.matches && el.matches(selector)) {
+                      window.kaiseki.conversion(rule.name);
+                      break;
+                    }
+                  } catch (err) { /* invalid selector */ }
+                  el = el.parentElement;
+                }
+              },
+              true
+            );
+          } else if (rule.type === "form_submit") {
+            document.addEventListener(
+              "submit",
+              function (e) {
+                try {
+                  if (e.target && e.target.matches && e.target.matches(selector)) {
+                    window.kaiseki.conversion(rule.name);
+                  }
+                } catch (err) { /* invalid selector */ }
+              },
+              true
+            );
+          }
+        });
+      })
+      .catch(function () { /* ルール取得失敗は無視 */ });
+  }
+
+  setupCvRules();
 })(window, document);

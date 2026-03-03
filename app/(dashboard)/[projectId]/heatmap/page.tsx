@@ -175,7 +175,7 @@ export default function HeatmapPage() {
     }
     return pageDocH
       ? Math.min(Math.round(pageDocH * desktopScale), 6000)
-      : Math.round(containerWidth * 1.6); // fallback: 1.6 aspect ratio
+      : 800; // fallback when pageDocH is unknown
   })();
 
   // キャンバスの論理ピクセル解像度
@@ -183,7 +183,7 @@ export default function HeatmapPage() {
   // canvasH はキャンバスの論理px = virtualH（ただしモバイルはscale=1なのでそのまま）
   const canvasH = device === "mobile"
     ? (pageDocH ? Math.min(pageDocH, 6000) : 1200)
-    : (pageDocH ? Math.min(pageDocH, Math.round(6000 / desktopScale)) : Math.round(containerWidth * 1.6 / desktopScale));
+    : (pageDocH ? Math.min(pageDocH, Math.round(6000 / desktopScale)) : Math.round(800 / desktopScale));
 
   // canvas の論理サイズをセットして描画
   useEffect(() => {
@@ -308,7 +308,7 @@ export default function HeatmapPage() {
         )}
 
         {/* ヒートマップ本体 */}
-        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+        <div ref={containerRef} className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
           {loading ? (
             <div className="flex items-center justify-center py-32">
               <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
@@ -325,7 +325,6 @@ export default function HeatmapPage() {
           ) : (
             /* スクロール可能コンテナ: 高さはビューポートの80%に制限してスクロール */
             <div
-              ref={containerRef}
               className="relative bg-slate-800 overflow-y-auto"
               style={{ maxHeight: "80vh", minHeight: 400 }}
             >

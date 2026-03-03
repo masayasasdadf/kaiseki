@@ -7,6 +7,8 @@
 
 export type ChannelGroup =
   | "Paid Search"
+  | "Paid Display"
+  | "Paid Video"
   | "Paid Social"
   | "Organic Search"
   | "Organic Social"
@@ -23,6 +25,7 @@ interface AttributionInput {
   gclid?: string | null;
   wbraid?: string | null;
   gbraid?: string | null;
+  msclkid?: string | null;
   fbclid?: string | null;
   referrer?: string | null;
 }
@@ -85,36 +88,64 @@ const PAID_SOCIAL_MEDIUMS = [
   "social_paid",
 ];
 
+// ディスプレイ広告のmedium識別子
+const DISPLAY_MEDIUMS = ["display", "banner", "cpm", "interstitial", "native"];
+
+// 動画広告のmedium識別子
+const VIDEO_MEDIUMS = ["video", "ytd", "preroll", "instream", "outstream"];
+
 /**
  * UTMパラメータとreferrerからチャネルグループを判定する
  *
  * 優先順位:
- * 1. gclid/wbraid/gbraid → Paid Search
- * 2. fbclid → Paid Social
- * 3. utm_medium が cpc/ppc → Paid Search
- * 4. utm_medium が email → Email
- * 5. utm_medium が affiliate → Affiliate
- * 6. utm_medium が social/paid_social → Paid Social
- * 7. utm_source が検索エンジン → Organic Search
- * 8. utm_source がSNS → Organic Social
- * 9. referrer が検索エンジン → Organic Search
- * 10. referrer がSNS → Organic Social
- * 11. referrer がある → Referral
- * 12. なし → Direct
+ * 1. gclid/wbraid/gbraid + utm_medium=display → Paid Display
+ * 2. gclid/wbraid/gbraid + utm_medium=video → Paid Video
+ * 3. gclid/wbraid/gbraid → Paid Search
+ * 4. msclkid → Paid Search（Bing Ads）
+ * 5. fbclid → Paid Social
+ * 6. utm_medium が display/banner/cpm → Paid Display
+ * 7. utm_medium が video → Paid Video
+ * 8. utm_medium が cpc/ppc → Paid Search
+ * 9. utm_medium が email → Email
+ * 10. utm_medium が affiliate → Affiliate
+ * 11. utm_medium が social/paid_social → Paid Social
+ * 12. utm_source が検索エンジン → Organic Search
+ * 13. utm_source がSNS → Organic Social
+ * 14. referrer が検索エンジン → Organic Search
+ * 15. referrer がSNS → Organic Social
+ * 16. referrer がある → Referral
+ * 17. なし → Direct
  */
 export function classifyChannel(input: AttributionInput): ChannelGroup {
   const medium = input.utmMedium?.toLowerCase() ?? "";
   const source = input.utmSource?.toLowerCase() ?? "";
   const referrerDomain = extractDomain(input.referrer ?? "");
 
-  // Google広告クリック識別子
+  // Google広告クリック識別子（mediumでサブチャネルを区別）
   if (input.gclid || input.wbraid || input.gbraid) {
+    if (DISPLAY_MEDIUMS.includes(medium)) return "Paid Display";
+    if (VIDEO_MEDIUMS.includes(medium)) return "Paid Video";
+    return "Paid Search";
+  }
+
+  // Bing/Microsoft広告クリック識別子
+  if (input.msclkid) {
     return "Paid Search";
   }
 
   // Meta広告クリック識別子
   if (input.fbclid) {
     return "Paid Social";
+  }
+
+  // UTM medium がディスプレイ広告
+  if (DISPLAY_MEDIUMS.includes(medium)) {
+    return "Paid Display";
+  }
+
+  // UTM medium が動画広告
+  if (VIDEO_MEDIUMS.includes(medium)) {
+    return "Paid Video";
   }
 
   // UTM medium が有料検索
@@ -187,6 +218,8 @@ function extractDomain(url: string): string {
  */
 export const CHANNEL_COLORS: Record<ChannelGroup, string> = {
   "Paid Search": "#4F46E5",
+  "Paid Display": "#7C3AED",
+  "Paid Video": "#DC2626",
   "Paid Social": "#EC4899",
   "Organic Search": "#10B981",
   "Organic Social": "#F59E0B",
@@ -202,6 +235,8 @@ export const CHANNEL_COLORS: Record<ChannelGroup, string> = {
  */
 export const ALL_CHANNELS: ChannelGroup[] = [
   "Paid Search",
+  "Paid Display",
+  "Paid Video",
   "Paid Social",
   "Organic Search",
   "Organic Social",

@@ -54,6 +54,7 @@ const attributionSchema = z.object({
   gclid: z.string().max(255).nullable().optional(),
   wbraid: z.string().max(255).nullable().optional(),
   gbraid: z.string().max(255).nullable().optional(),
+  msclkid: z.string().max(255).nullable().optional(),
   fbclid: z.string().max(255).nullable().optional(),
 });
 
@@ -207,6 +208,13 @@ export async function POST(req: NextRequest) {
   const corsHeaders = getCORSHeaders(origin, project.allowedDomains);
 
   const ua = req.headers.get("user-agent") || "";
+
+  // ボット・クローラーを除外
+  const BOT_PATTERN = /bot|crawl|spider|slurp|baidu|bingpreview|googlebot|yandex|semrush|ahrefs|mj12bot|dotbot|rogerbot|wget|curl|scrapy|python-requests|python-urllib|go-http-client|okhttp|axios|node-fetch|libwww|java\/|ruby|perl|phantom|headless|puppeteer|playwright|selenium|prerender|preview|lighthouse|pagespeed|insights|checker|validator|monitor|ping|health/i;
+  if (BOT_PATTERN.test(ua) || ua === "") {
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  }
+
   const device = detectDevice(ua);
   const browser = detectBrowser(ua);
   const os = detectOS(ua);
@@ -222,6 +230,9 @@ export async function POST(req: NextRequest) {
           utmMedium: attr.utmMedium,
           utmCampaign: attr.utmCampaign,
           gclid: attr.gclid,
+          wbraid: attr.wbraid,
+          gbraid: attr.gbraid,
+          msclkid: attr.msclkid,
           fbclid: attr.fbclid,
           referrer: attr.referrer,
         });
@@ -262,10 +273,18 @@ export async function POST(req: NextRequest) {
       }
 
       case "page_view": {
-        await db.session.update({
+        // session_start と page_view が同時到着する競合状態を吸収するため upsert を使用
+        await db.session.upsert({
           where: { sessionId: data.sessionId },
-          data: { pageviewCount: { increment: 1 } },
-        }).catch(() => {});
+          create: {
+            projectId: project.id,
+            visitorId: data.visitorId,
+            sessionId: data.sessionId,
+            startedAt: timestamp,
+            pageviewCount: 1,
+          },
+          update: { pageviewCount: { increment: 1 } },
+        });
 
         await db.pageView.create({
           data: {
@@ -489,7 +508,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (data.eventType === "page_view" && data.path) {
-      await checkUrlConversionRules(project.id, data.sessionId, data.visitorId, data.path, timestamp);
+      try {
+        await checkUrlConversionRules(project.id, data.sessionId, data.visitorId, data.path, timestamp);
+      } catch (cvErr) {
+        console.error("[Ingest] CV rule check error:", cvErr);
+      }
     }
 
     return new Response(JSON.stringify({ ok: true }), {

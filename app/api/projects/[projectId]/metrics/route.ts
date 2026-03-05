@@ -24,6 +24,7 @@ export async function GET(
       db.session.findMany({
         where: { projectId, startedAt: { gte: from, lte: to } },
         select: {
+          id: true,
           visitorId: true,
           engaged: true,
           bounced: true,
@@ -66,14 +67,25 @@ export async function GET(
   const engagementRate = totalSessions > 0 ? (engagedSessions / totalSessions) * 100 : 0;
 
   // チャネル別集計
-  const channelMap = new Map<string, { sessions: number; visitors: Set<string> }>();
+  const sessionChannelMap = new Map<string, string>();
+  for (const s of sessions) {
+    sessionChannelMap.set(s.id, s.channelGroup);
+  }
+
+  const channelMap = new Map<string, { sessions: number; visitors: Set<string>; conversions: number }>();
   for (const s of sessions) {
     if (!channelMap.has(s.channelGroup)) {
-      channelMap.set(s.channelGroup, { sessions: 0, visitors: new Set() });
+      channelMap.set(s.channelGroup, { sessions: 0, visitors: new Set(), conversions: 0 });
     }
     const ch = channelMap.get(s.channelGroup)!;
     ch.sessions++;
     ch.visitors.add(s.visitorId);
+  }
+  for (const c of conversions) {
+    const channel = sessionChannelMap.get(c.sessionId);
+    if (channel && channelMap.has(channel)) {
+      channelMap.get(channel)!.conversions++;
+    }
   }
 
   const channels = Array.from(channelMap.entries())
@@ -81,7 +93,7 @@ export async function GET(
       name,
       sessions: data.sessions,
       visitors: data.visitors.size,
-      conversions: 0,
+      conversions: data.conversions,
     }))
     .sort((a, b) => b.sessions - a.sessions);
 

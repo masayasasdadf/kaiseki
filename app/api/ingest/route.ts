@@ -259,7 +259,21 @@ export async function POST(req: NextRequest) {
             browser,
             os,
           },
-          update: {},
+          // page_view が先着してセッションを Direct で作ってしまう競合状態を修正:
+          // session_start は新規セッション時のみ発火するため、ここで attribution を上書きしても安全
+          update: {
+            channelGroup,
+            landingUrl: attr.landingUrl,
+            landingPath: attr.landingPath,
+            referrer: attr.referrer,
+            utmSource: attr.utmSource,
+            utmMedium: attr.utmMedium,
+            utmCampaign: attr.utmCampaign,
+            utmContent: attr.utmContent,
+            utmTerm: attr.utmTerm,
+            gclid: attr.gclid,
+            fbclid: attr.fbclid,
+          },
         });
 
         broadcastLiveEvent(project.id, {

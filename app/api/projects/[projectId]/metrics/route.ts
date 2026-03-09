@@ -94,8 +94,31 @@ export async function GET(
       sessions: data.sessions,
       visitors: data.visitors.size,
       conversions: data.conversions,
+      cvr: data.sessions > 0 ? (data.conversions / data.sessions) * 100 : 0,
     }))
     .sort((a, b) => b.sessions - a.sessions);
+
+  // チャネル×CV名のクロス集計
+  const channelCvMap = new Map<string, Map<string, number>>();
+  for (const c of conversions) {
+    const channel = sessionChannelMap.get(c.sessionId);
+    if (!channel) continue;
+    if (!channelCvMap.has(channel)) channelCvMap.set(channel, new Map());
+    const cvNameMap = channelCvMap.get(channel)!;
+    cvNameMap.set(c.conversionName, (cvNameMap.get(c.conversionName) || 0) + 1);
+  }
+  const channelConversions = Array.from(channelCvMap.entries())
+    .map(([channel, cvs]) => ({
+      channel,
+      breakdown: Array.from(cvs.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count),
+    }))
+    .sort((a, b) => {
+      const aTotal = a.breakdown.reduce((s, x) => s + x.count, 0);
+      const bTotal = b.breakdown.reduce((s, x) => s + x.count, 0);
+      return bTotal - aTotal;
+    });
 
   // LP別集計
   const lpMap = new Map<string, { sessions: number; bounced: number; visitors: Set<string> }>();
@@ -167,6 +190,7 @@ export async function GET(
       prevConversions,
     },
     channels,
+    channelConversions,
     landingPages,
     topPages,
     trend,

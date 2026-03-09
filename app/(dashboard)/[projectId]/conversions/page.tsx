@@ -6,6 +6,8 @@ import { Header } from "@/components/dashboard/header";
 import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
 import { CV_TYPE_LABELS } from "@/lib/terminology";
 import { type DateRange } from "@/lib/utils";
+import { CHANNEL_COLORS, channelLabel } from "@/lib/attribution";
+import { formatPercent } from "@/lib/utils";
 import {
   Loader2,
   Plus,
@@ -29,6 +31,11 @@ interface TrackingRule {
 
 interface MetricsData {
   conversionsByName: Array<{ name: string; count: number }>;
+  channels: Array<{ name: string; sessions: number; conversions: number; cvr: number }>;
+  channelConversions: Array<{
+    channel: string;
+    breakdown: Array<{ name: string; count: number }>;
+  }>;
 }
 
 export default function ConversionsPage() {
@@ -133,6 +140,96 @@ export default function ConversionsPage() {
                       </p>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* チャネル別CV */}
+            {metricsData && metricsData.channels.some((ch) => ch.conversions > 0) && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                <h2 className="text-base font-semibold text-slate-800 mb-4">
+                  {easyMode ? "どこから来た人が成果を出したか" : "Channel CV Breakdown"}
+                </h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200">
+                        {(easyMode
+                          ? ["流入元", "訪問数", "成果数", "成果率", "成果の内訳"]
+                          : ["Channel", "Sessions", "Conversions", "CVR", "Breakdown"]
+                        ).map((h) => (
+                          <th
+                            key={h}
+                            className="pb-3 text-left font-medium text-slate-500 first:pl-0 last:pr-0 px-3"
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {metricsData.channels
+                        .filter((ch) => ch.conversions > 0)
+                        .map((ch) => {
+                          const color =
+                            CHANNEL_COLORS[ch.name as keyof typeof CHANNEL_COLORS] || "#94A3B8";
+                          const crossTab = metricsData.channelConversions.find(
+                            (x) => x.channel === ch.name
+                          );
+                          return (
+                            <tr key={ch.name} className="hover:bg-slate-50 transition-colors">
+                              <td className="py-3 pl-0 pr-3">
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="h-3 w-3 rounded-full shrink-0"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                  <span className="font-medium text-slate-800">
+                                    {channelLabel(ch.name, easyMode)}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-3 tabular-nums text-slate-700">
+                                {ch.sessions.toLocaleString()}
+                              </td>
+                              <td className="py-3 px-3 tabular-nums font-semibold text-indigo-700">
+                                {ch.conversions.toLocaleString()}
+                              </td>
+                              <td className="py-3 px-3 tabular-nums">
+                                <span
+                                  className={
+                                    ch.cvr >= 3
+                                      ? "text-emerald-600 font-medium"
+                                      : ch.cvr >= 1
+                                      ? "text-amber-600"
+                                      : "text-slate-500"
+                                  }
+                                >
+                                  {formatPercent(ch.cvr)}
+                                </span>
+                              </td>
+                              <td className="py-3 pl-3 pr-0">
+                                {crossTab && crossTab.breakdown.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {crossTab.breakdown.map((b) => (
+                                      <span
+                                        key={b.name}
+                                        className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700"
+                                      >
+                                        <span className="truncate max-w-[120px]">{b.name}</span>
+                                        <span className="font-semibold">{b.count}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}

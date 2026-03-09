@@ -25,6 +25,7 @@ export async function GET(
         where: { projectId, startedAt: { gte: from, lte: to } },
         select: {
           id: true,
+          sessionId: true,
           visitorId: true,
           engaged: true,
           bounced: true,
@@ -67,9 +68,10 @@ export async function GET(
   const engagementRate = totalSessions > 0 ? (engagedSessions / totalSessions) * 100 : 0;
 
   // チャネル別集計
+  // conversion.sessionId は Session.sessionId（外部SDK ID）を参照するため、s.id ではなく s.sessionId でキーを設定
   const sessionChannelMap = new Map<string, string>();
   for (const s of sessions) {
-    sessionChannelMap.set(s.id, s.channelGroup);
+    sessionChannelMap.set(s.sessionId, s.channelGroup);
   }
 
   const channelMap = new Map<string, { sessions: number; visitors: Set<string>; conversions: number }>();

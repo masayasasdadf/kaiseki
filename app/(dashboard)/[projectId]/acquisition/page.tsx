@@ -6,7 +6,7 @@ import { Header } from "@/components/dashboard/header";
 import { ChannelTable } from "@/components/dashboard/channel-table";
 import { useEasyMode } from "@/components/easy-mode/easy-mode-context";
 import { type DateRange, formatPercent } from "@/lib/utils";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import { CHANNEL_COLORS, channelLabel } from "@/lib/attribution";
 import {
   BarChart,
@@ -17,6 +17,15 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+
+interface ReferrerRow {
+  domain: string;
+  sessions: number;
+  visitors: number;
+  conversions: number;
+  cvr: number;
+  topPages: Array<{ path: string; count: number }>;
+}
 
 interface MetricsData {
   kpi: {
@@ -31,6 +40,7 @@ interface MetricsData {
     visitors: number;
     conversions: number;
   }>;
+  referrers: ReferrerRow[];
 }
 
 interface SearchRow {
@@ -39,6 +49,115 @@ interface SearchRow {
   impressions: number;
   ctr: number;
   position: number;
+}
+
+function ReferrerTable({ rows, easyMode }: { rows: ReferrerRow[]; easyMode: boolean }) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  if (rows.length === 0) {
+    return (
+      <p className="text-sm text-slate-400 py-8 text-center">
+        {easyMode ? "他サイトからの流入はありません" : "参照元データがありません"}
+      </p>
+    );
+  }
+
+  const headers = easyMode
+    ? ["参照元サイト", "訪問数", "訪問した人", "成果数", "成果率"]
+    : ["参照元ドメイン", "セッション", "ユーザー", "CV", "CVR"];
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-200">
+            {headers.map((h) => (
+              <th
+                key={h}
+                className="pb-3 text-left font-medium text-slate-500 first:pl-0 last:pr-0 px-3"
+              >
+                {h}
+              </th>
+            ))}
+            <th className="pb-3 w-8" />
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.map((row) => {
+            const isOpen = expanded === row.domain;
+            return (
+              <>
+                <tr
+                  key={row.domain}
+                  className="hover:bg-slate-50 transition-colors cursor-pointer"
+                  onClick={() => setExpanded(isOpen ? null : row.domain)}
+                >
+                  <td className="py-3 pl-0 pr-3">
+                    <div className="flex items-center gap-1.5">
+                      <ExternalLink className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                      <span className="font-medium text-slate-800">{row.domain}</span>
+                    </div>
+                  </td>
+                  <td className="py-3 px-3 tabular-nums text-slate-700">
+                    {row.sessions.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-3 tabular-nums text-slate-700">
+                    {row.visitors.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-3 tabular-nums font-semibold text-indigo-700">
+                    {row.conversions.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-3 tabular-nums">
+                    <span
+                      className={
+                        row.cvr >= 3
+                          ? "text-emerald-600 font-medium"
+                          : row.cvr >= 1
+                          ? "text-amber-600"
+                          : "text-slate-500"
+                      }
+                    >
+                      {formatPercent(row.cvr)}
+                    </span>
+                  </td>
+                  <td className="py-3 pl-3 pr-0 text-slate-400">
+                    {row.topPages.length > 0 ? (
+                      isOpen ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )
+                    ) : null}
+                  </td>
+                </tr>
+                {isOpen && row.topPages.length > 0 && (
+                  <tr key={`${row.domain}-pages`}>
+                    <td colSpan={6} className="pb-3 pl-6 pr-0">
+                      <div className="bg-slate-50 rounded-xl p-3 space-y-1.5">
+                        <p className="text-xs font-medium text-slate-500 mb-2">
+                          {easyMode ? "流入ページの内訳" : "参照ページ内訳"}
+                        </p>
+                        {row.topPages.map((p) => (
+                          <div key={p.path} className="flex items-center justify-between gap-3">
+                            <span className="text-xs font-mono text-slate-600 truncate max-w-[320px]">
+                              {p.path}
+                            </span>
+                            <span className="text-xs tabular-nums text-slate-500 shrink-0">
+                              {easyMode ? `${p.count}件` : `${p.count} sessions`}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export default function AcquisitionPage() {
@@ -199,6 +318,23 @@ export default function AcquisitionPage() {
                 })}
               </div>
             </div>
+
+            {/* 参照元ドメイン別テーブル */}
+            {data.referrers && data.referrers.length > 0 && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                <div className="mb-4">
+                  <h2 className="text-base font-semibold text-slate-800">
+                    {easyMode ? "他のサイトからの流入" : "参照元ドメイン別"}
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {easyMode
+                      ? "クリックすると、どのページから来たか確認できます"
+                      : "行をクリックすると参照ページの内訳を表示"}
+                  </p>
+                </div>
+                <ReferrerTable rows={data.referrers} easyMode={easyMode} />
+              </div>
+            )}
 
             {/* Search Console 検索クエリ */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5">

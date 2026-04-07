@@ -33,6 +33,7 @@ export async function GET(
           pageviewCount: true,
           channelGroup: true,
           landingPath: true,
+          referrer: true,
           utmCampaign: true,
           utmSource: true,
           utmMedium: true,
@@ -122,6 +123,57 @@ export async function GET(
       return bTotal - aTotal;
     });
 
+  // 参照元ドメイン別集計
+  const sessionReferrerDomainMap = new Map<string, string>(); // sessionId -> domain
+  const referrerDomainMap = new Map<string, {
+    sessions: number;
+    visitors: Set<string>;
+    conversions: number;
+    pageMap: Map<string, number>; // referrer path -> session count
+  }>();
+
+  for (const s of sessions) {
+    if (!s.referrer) continue;
+    let domain: string;
+    let path: string;
+    try {
+      const u = new URL(s.referrer);
+      domain = u.hostname.replace(/^www\./, "");
+      path = u.pathname || "/";
+    } catch {
+      continue;
+    }
+    sessionReferrerDomainMap.set(s.sessionId, domain);
+    if (!referrerDomainMap.has(domain)) {
+      referrerDomainMap.set(domain, { sessions: 0, visitors: new Set(), conversions: 0, pageMap: new Map() });
+    }
+    const entry = referrerDomainMap.get(domain)!;
+    entry.sessions++;
+    entry.visitors.add(s.visitorId);
+    entry.pageMap.set(path, (entry.pageMap.get(path) || 0) + 1);
+  }
+  for (const c of conversions) {
+    const domain = sessionReferrerDomainMap.get(c.sessionId);
+    if (domain && referrerDomainMap.has(domain)) {
+      referrerDomainMap.get(domain)!.conversions++;
+    }
+  }
+
+  const referrers = Array.from(referrerDomainMap.entries())
+    .map(([domain, data]) => ({
+      domain,
+      sessions: data.sessions,
+      visitors: data.visitors.size,
+      conversions: data.conversions,
+      cvr: data.sessions > 0 ? (data.conversions / data.sessions) * 100 : 0,
+      topPages: Array.from(data.pageMap.entries())
+        .map(([path, count]) => ({ path, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5),
+    }))
+    .sort((a, b) => b.sessions - a.sessions)
+    .slice(0, 20);
+
   // LP別集計
   const lpMap = new Map<string, { sessions: number; bounced: number; visitors: Set<string> }>();
   for (const s of sessions) {
@@ -193,6 +245,7 @@ export async function GET(
     },
     channels,
     channelConversions,
+    referrers,
     landingPages,
     topPages,
     trend,

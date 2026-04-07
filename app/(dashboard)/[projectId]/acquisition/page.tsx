@@ -319,22 +319,65 @@ export default function AcquisitionPage() {
               </div>
             </div>
 
-            {/* 参照元ドメイン別テーブル */}
-            {data.referrers && data.referrers.length > 0 && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                <div className="mb-4">
-                  <h2 className="text-base font-semibold text-slate-800">
-                    {easyMode ? "他のサイトからの流入" : "参照元ドメイン別"}
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
+            {/* 参照元ドメイン別 */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <div className="mb-4">
+                <h2 className="text-base font-semibold text-slate-800">
+                  {easyMode ? "他のサイトからの流入" : "参照元ドメイン別"}
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {easyMode
+                    ? "どのサイトから来たか・どのページから来たか確認できます"
+                    : "外部サイトからの流入ドメインと参照ページ内訳（行クリックで展開）"}
+                </p>
+              </div>
+              {data.referrers && data.referrers.length > 0 ? (
+                <>
+                  {/* 上位10ドメイン 横棒チャート */}
+                  <div className="mb-6 space-y-2">
+                    {data.referrers.slice(0, 10).map((row, i) => {
+                      const maxSessions = data.referrers[0].sessions;
+                      const pct = maxSessions > 0 ? (row.sessions / maxSessions) * 100 : 0;
+                      const hue = (i * 37) % 360;
+                      const color = `hsl(${hue}, 60%, 55%)`;
+                      return (
+                        <div key={row.domain} className="flex items-center gap-3 text-sm">
+                          <span
+                            className="w-40 shrink-0 truncate text-slate-700 font-medium text-xs"
+                            title={row.domain}
+                          >
+                            {row.domain}
+                          </span>
+                          <div className="flex-1 bg-slate-100 rounded-full h-3">
+                            <div
+                              className="h-3 rounded-full transition-all"
+                              style={{ width: `${pct}%`, backgroundColor: color }}
+                            />
+                          </div>
+                          <span className="w-10 tabular-nums text-slate-600 text-xs text-right shrink-0">
+                            {row.sessions.toLocaleString()}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* 詳細テーブル */}
+                  <ReferrerTable rows={data.referrers} easyMode={easyMode} />
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <ExternalLink className="h-10 w-10 mb-3 text-slate-200" />
+                  <p className="font-medium text-sm">
+                    {easyMode ? "他サイトからの流入はまだありません" : "参照元データがありません"}
+                  </p>
+                  <p className="text-xs mt-1">
                     {easyMode
-                      ? "クリックすると、どのページから来たか確認できます"
-                      : "行をクリックすると参照ページの内訳を表示"}
+                      ? "他のサイトにリンクを貼ってもらうと計測できます"
+                      : "外部サイトからリンクされた流入が記録されると表示されます"}
                   </p>
                 </div>
-                <ReferrerTable rows={data.referrers} easyMode={easyMode} />
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Search Console 検索クエリ */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
